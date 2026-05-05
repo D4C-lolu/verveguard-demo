@@ -1,0 +1,55 @@
+package com.interswitch.verveguarddemo.security;
+
+import com.interswitch.verveguarddemo.entities.User;
+import com.interswitch.verveguarddemo.models.enums.UserStatus;
+import org.jspecify.annotations.NonNull;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
+public record AdminPrincipal(User user) implements UserDetails {
+
+    public Long getId() {
+        return user.getId();
+    }
+
+    @Override
+    public @NonNull String getUsername() {
+        return user.getEmail();
+    }
+
+    @Override
+    public String getPassword() {
+        return user.getPasswordHash();
+    }
+
+    @Override
+    public @NonNull Collection<? extends GrantedAuthority> getAuthorities() {
+        List<GrantedAuthority> authorities = new ArrayList<>();
+        authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().getName()));
+        user.getRole().getPermissions().forEach(p ->
+                authorities.add(new SimpleGrantedAuthority(p.getName()))
+        );
+        return authorities;
+    }
+
+    @Override
+    public boolean isAccountNonExpired() { return true; }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return user.isNotDeleted() && user.getUserStatus() != UserStatus.SUSPENDED;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() { return true; }
+
+    @Override
+    public boolean isEnabled() {
+        return user.isNotDeleted() && user.getUserStatus() == UserStatus.ACTIVE;
+    }
+}

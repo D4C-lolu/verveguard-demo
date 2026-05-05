@@ -1,0 +1,89 @@
+package com.interswitch.verveguarddemo.configuration;
+
+import com.interswitch.verveguarddemo.constants.Permissions;
+import com.interswitch.verveguarddemo.filters.JwtAuthFilter;
+import com.interswitch.verveguarddemo.security.AccessDeniedHandlerImpl;
+import com.interswitch.verveguarddemo.security.AuthEntryPoint;
+import com.interswitch.verveguarddemo.security.UserDetailsServiceImpl;
+import lombok.RequiredArgsConstructor;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+@EnableConfigurationProperties(JwtProperties.class)
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity
+@RequiredArgsConstructor
+public class SecurityConfig {
+
+    private final JwtAuthFilter jwtAuthFilter;
+    private final UserDetailsServiceImpl userDetailsService;
+    private final AuthEntryPoint authEntryPoint;
+    private final AccessDeniedHandlerImpl accessDeniedHandler;
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
+        http
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(authEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler)
+                )
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(AbstractHttpConfigurer::disable)
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .headers(headers -> headers
+                        .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
+                )
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/prometheus", "/actuator/health").permitAll()
+                        .requestMatchers("/actuator/**").hasAuthority(Permissions.SYSTEM_MONITOR)
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/swagger-resources/**",
+                                "/webjars/**"
+                        ).permitAll()
+                        .requestMatchers("/api/*/auth/logout", "/api/*/auth/logout-all").authenticated()
+                        .requestMatchers("/api/*/auth/**").permitAll()
+                        .requestMatchers("/api/*/merchants/register").permitAll()
+                        .requestMatchers("/api/*/fraud/evaluate/*").permitAll()
+                        .anyRequest().authenticated()
+                )
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) {
+        return config.getAuthenticationManager();
+    }
+
+    @Bean
+    public DaoAuthenticationProvider daoAuthenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
