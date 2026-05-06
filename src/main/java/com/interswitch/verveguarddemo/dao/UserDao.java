@@ -3,8 +3,6 @@ package com.interswitch.verveguarddemo.dao;
 import com.interswitch.verveguarddemo.models.enums.UserStatus;
 import com.interswitch.verveguarddemo.models.response.UserResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -14,7 +12,6 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Consumer;
 
 @Repository
 @RequiredArgsConstructor
@@ -49,7 +46,6 @@ public class UserDao {
         );
     }
 
-    @Cacheable(value = "user", key = "#id")
     public Optional<UserResponse> findById(Long id) {
         return namedJdbc.query(
                 "SELECT * FROM sp_user_find_by_id(:id)",
@@ -72,7 +68,6 @@ public class UserDao {
                 });
     }
 
-    @CacheEvict(value = "user", key = "#params.values['id']")
     public void update(MapSqlParameterSource params) {
         namedJdbc.queryForList(
                 "SELECT sp_user_update(:id, :firstname, :lastname, :othername, :email, :phone)",
@@ -80,7 +75,6 @@ public class UserDao {
         );
     }
 
-    @CacheEvict(value = "user", key = "#id")
     public void updateStatus(Long id, String userStatus) {
         namedJdbc.queryForList(
                 "SELECT sp_user_update_status(:id, :userStatus)",
@@ -90,7 +84,6 @@ public class UserDao {
         );
     }
 
-    @CacheEvict(value = "user", key = "#id")
     public void updatePassword(Long id, String passwordHash) {
         namedJdbc.queryForList(
                 "SELECT sp_user_update_password(:id, :passwordHash)",
@@ -100,7 +93,6 @@ public class UserDao {
         );
     }
 
-    @CacheEvict(value = "user", key = "#id")
     public void softDelete(Long id, Long deletedBy) {
         namedJdbc.queryForList(
                 "SELECT sp_user_soft_delete(:id, :deletedBy)",
@@ -110,7 +102,6 @@ public class UserDao {
         );
     }
 
-    @Cacheable(value = "user-role-name", key = "#roleId")
     public Optional<String> findRoleNameById(Long roleId) {
         String result = namedJdbc.queryForObject(
                 "SELECT sp_user_find_role_name_by_id(:roleId)",
@@ -134,23 +125,6 @@ public class UserDao {
                 new MapSqlParameterSource("id", id),
                 Boolean.class
         ));
-    }
-
-    public void streamUserIdsByRoleId(Long roleId, int batchSize, Consumer<List<Long>> batchConsumer) {
-        long lastId = 0;
-        while (true) {
-            List<Long> batch = namedJdbc.queryForList(
-                    "SELECT id FROM users WHERE role_id = :roleId AND deleted_at IS NULL AND id > :lastId ORDER BY id LIMIT :batchSize",
-                    new MapSqlParameterSource()
-                            .addValue("roleId", roleId)
-                            .addValue("lastId", lastId)
-                            .addValue("batchSize", batchSize),
-                    Long.class
-            );
-            if (batch.isEmpty()) break;
-            batchConsumer.accept(batch);
-            lastId = batch.getLast();
-        }
     }
 
     private RowMapper<UserResponse> userRowMapper() {

@@ -2,7 +2,8 @@ package com.interswitch.verveguarddemo.controllers.v1;
 
 import com.interswitch.verveguarddemo.annotation.ValidSortField;
 import com.interswitch.verveguarddemo.constants.Permissions;
-import com.interswitch.verveguarddemo.models.request.*;
+import com.interswitch.verveguarddemo.models.request.BulkPermissionRequest;
+import com.interswitch.verveguarddemo.models.request.CreateRoleRequest;
 import com.interswitch.verveguarddemo.models.response.RoleResponse;
 import com.interswitch.verveguarddemo.services.RoleService;
 import io.swagger.v3.oas.annotations.Operation;

@@ -1,25 +1,69 @@
 package com.interswitch.verveguarddemo.repositories;
 
 import com.interswitch.verveguarddemo.entities.User;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
+import com.interswitch.verveguarddemo.models.enums.UserStatus;
+import com.interswitch.verveguarddemo.models.response.UserResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
-    @Cacheable(value = "user-by-email", key = "#email")
     @Query("SELECT u FROM User u JOIN FETCH u.role r LEFT JOIN FETCH r.permissions WHERE u.email = :email")
     Optional<User> findByEmail(String email);
 
-    @Caching(evict = {
-            @CacheEvict(value = "user-by-email", allEntries = true),
-            @CacheEvict(value = "user-role-name", allEntries = true)
-    })
-    @Query(value = "SELECT sp_user_update_role(:id, :roleId)", nativeQuery = true)
-    void updateRole(@Param("id") Long id, @Param("roleId") Long roleId);
+    @Query("SELECT new com.interswitch.verveguarddemo.models.response.UserResponse(u.id, u.firstname, u.lastname, u.othername, u.email, u.phone, u.role.name, u.userStatus, u.createdAt, u.updatedAt) FROM User u WHERE u.id = :id")
+    Optional<UserResponse> findUserById(Long id);
+
+    @Modifying
+    @Query("""
+                UPDATE User u
+                SET u.userStatus = 'DELETED', 
+                    u.updatedBy = :deletedBy, 
+                    u.updatedAt = CURRENT_TIMESTAMP 
+                WHERE u.id = :userId
+            """)
+    void softDelete(Long userId, Long deletedBy);
+
+    @Query("SELECT u.id AS id, (u.email = :email) AS email_exists, (u.phone = :phone) AS phone_exists FROM User u WHERE u.email = :email OR u.phone = :phone")
+    List<Map<String, Object>> validateForCreate(String email, String phone);
+
+    @Query("SELECT u.passwordHash FROM User u WHERE u.id = :id")
+    String findPasswordHashById(Long id);
+
+    @Modifying
+    @Query("UPDATE User u SET u.passwordHash = :passwordHash, u.updatedBy = :updatedBy WHERE u.id = :id")
+    void updatePassword(Long id, String passwordHash, Long updatedBy);
+
+    @Modifying
+    @Query("UPDATE User u SET u.userStatus = :userStatus, u.updatedBy = :updatedBy WHERE u.id = :id")
+    void updateStatus(Long id, UserStatus userStatus, Long updatedBy);
+
+    @Modifying
+    @Query("UPDATE User u SET u.role.id = :roleId, u.updatedBy = :updatedBy WHERE u.id = :id")
+    void updateRole(Long id, Long roleId, Long updatedBy);
+
+    @Query("""
+                SELECT new  com.interswitch.verveguarddemo.models.response.UserResponse(
+                    u.id, 
+                    u.firstname, 
+                    u.lastname, 
+                    u.othername, 
+                    u.email, 
+                    u.phone, 
+                    u.role.name, 
+                    u.userStatus, 
+                    u.createdAt, 
+                    u.updatedAt
+                ) 
+                FROM User u
+            """)
+    Page<UserResponse> findAllUsers(Pageable pageable);
 }

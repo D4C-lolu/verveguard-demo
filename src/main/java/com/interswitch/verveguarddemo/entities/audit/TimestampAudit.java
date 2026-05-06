@@ -11,7 +11,6 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 
 @Getter
 @Setter
@@ -27,15 +26,4 @@ public class TimestampAudit {
     @LastModifiedDate
     @Column(nullable = false)
     protected OffsetDateTime updatedAt;
-
-    @Column
-    protected OffsetDateTime deletedAt;
-
-    public boolean isNotDeleted() {
-        return deletedAt == null;
-    }
-
-    public void softDelete() {
-        this.deletedAt = OffsetDateTime.now(ZoneOffset.UTC);
-    }
 }

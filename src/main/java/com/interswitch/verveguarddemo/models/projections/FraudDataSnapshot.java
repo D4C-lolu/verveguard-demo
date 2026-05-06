@@ -2,9 +2,9 @@ package com.interswitch.verveguarddemo.models.projections;
 
 import java.math.BigDecimal;
 
-public record StaticFraudData(
+public record FraudDataSnapshot(
         boolean    isCardBlocked,
         boolean    isMerchantBlacklisted,
-        BigDecimal transactionLimit,
-        long       merchantId
+        boolean    isRateLimited,
+        BigDecimal transactionLimit
 ) {}

@@ -1,19 +1,12 @@
 package com.interswitch.verveguarddemo.controllers.v1;
 
 import com.interswitch.verveguarddemo.constants.Permissions;
-import com.interswitch.verveguarddemo.constants.Roles;
 import com.interswitch.verveguarddemo.models.enums.KycStatus;
 import com.interswitch.verveguarddemo.models.enums.MerchantStatus;
 import com.interswitch.verveguarddemo.models.request.CreateMerchantRequest;
-import com.interswitch.verveguarddemo.models.request.MerchantSignupRequest;
-import com.interswitch.verveguarddemo.models.request.UpdateMerchantRequest;
-import com.interswitch.verveguarddemo.models.request.UpdateMerchantStatusRequest;
 import com.interswitch.verveguarddemo.models.response.MerchantResponse;
 import com.interswitch.verveguarddemo.services.MerchantService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,10 +24,7 @@ public class MerchantController {
 
     private final MerchantService merchantService;
 
-    @Operation(
-            summary = "Create Merchant (Admin)",
-            description = "Allows an administrator to manually create a merchant profile. Requires MERCHANT_CREATE authority."
-    )
+    @Operation(summary = "Create Merchant (Admin)")
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
     @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_CREATE + "')")
@@ -42,168 +32,81 @@ public class MerchantController {
         return merchantService.createMerchant(request);
     }
 
-    @Operation(
-            summary = "Public Registration",
-            description = "Public endpoint for new users to sign up as merchants. No authentication required."
-    )
-    @ResponseStatus(HttpStatus.CREATED)
-    @PostMapping("register")
-    public MerchantResponse registerNewUserAsMerchant(@RequestBody @Valid MerchantSignupRequest request) {
-        return merchantService.registerNewUserAsMerchant(request);
-    }
-
-    @Operation(
-            summary = "Self-Registration",
-            description = "Allows an existing authenticated user to promote their account to a merchant profile."
-    )
-    @ResponseStatus(HttpStatus.CREATED)
-    @PostMapping("self-register")
-    public MerchantResponse selfRegisterExistingUser(@RequestParam(required = false) String address) {
-        return merchantService.selfRegisterExistingUser(address);
-    }
-
-    @Operation(
-            summary = "List All Merchants",
-            description = "Retrieve a paginated list of all registered merchants. Requires MERCHANT_READ authority."
-    )
+    @Operation(summary = "List All Merchants")
     @GetMapping
     @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_READ + "')")
     public Page<MerchantResponse> getAllMerchants(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "created_at") String sortField,
-            @RequestParam(defaultValue = "DESC") Sort.Direction sortDirection
+            @RequestParam(defaultValue = "createdAt") String sort,
+            @RequestParam(defaultValue = "DESC") Sort.Direction dir
     ) {
-        return merchantService.getAllMerchants(page, size, sortField, sortDirection);
+        // Pass individual params or PageRequest depending on your specific Service signature
+        return merchantService.getMerchantsByStatus(null, page, size, sort, dir);
     }
 
-    @Operation(
-            summary = "Filter by Status",
-            description = "List merchants based on their account status (e.g., ACTIVE, PENDING). Requires MERCHANT_READ authority."
-    )
+    @Operation(summary = "Filter by Status")
     @GetMapping("status")
     @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_READ + "')")
     public Page<MerchantResponse> getMerchantsByStatus(
             @RequestParam MerchantStatus status,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createdAt") String sortField,
-            @RequestParam(defaultValue = "DESC") Sort.Direction sortDirection
+            @RequestParam(defaultValue = "createdAt") String sort,
+            @RequestParam(defaultValue = "DESC") Sort.Direction dir
     ) {
-        return merchantService.getMerchantsByStatus(status, page, size, sortField, sortDirection);
+        return merchantService.getMerchantsByStatus(status, page, size, sort, dir);
     }
 
-    @Operation(
-            summary = "Filter by KYC Status",
-            description = "List merchants based on their verification level. Requires MERCHANT_READ authority."
-    )
+    @Operation(summary = "Filter by KYC Status")
     @GetMapping("kyc-status")
     @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_READ + "')")
     public Page<MerchantResponse> getMerchantsByKycStatus(
             @RequestParam KycStatus kycStatus,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createdAt") String sortField,
-            @RequestParam(defaultValue = "DESC") Sort.Direction sortDirection
+            @RequestParam(defaultValue = "createdAt") String sort,
+            @RequestParam(defaultValue = "DESC") Sort.Direction dir
     ) {
-        return merchantService.getMerchantsByKycStatus(kycStatus, page, size, sortField, sortDirection);
+        return merchantService.getMerchantsByKycStatus(kycStatus, page, size, sort, dir);
     }
 
-    @Operation(
-            summary = "Get Merchant by ID",
-            description = "Fetch full profile details for a specific merchant. Requires MERCHANT_READ authority."
-    )
+    @Operation(summary = "Get Merchant by ID")
     @GetMapping("{merchantId}")
     @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_READ + "')")
     public MerchantResponse getMerchantById(@PathVariable Long merchantId) {
         return merchantService.getMerchantById(merchantId);
     }
 
-    @Operation(
-            summary = "Update Merchant Profile",
-            description = "Update core merchant information. Requires MERCHANT_UPDATE authority."
-    )
-    @PutMapping("{merchantId}")
-    @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_UPDATE + "')")
-    public MerchantResponse updateMerchant(
-            @PathVariable Long merchantId,
-            @RequestBody @Valid UpdateMerchantRequest request
-    ) {
-        return merchantService.updateMerchant(merchantId, request);
-    }
-
-    @Operation(
-            summary = "Update Account Status",
-            description = "Change merchant status (Activate/Suspend). Requires MERCHANT_UPDATE authority."
-    )
-    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Update Account Status")
     @PatchMapping("{merchantId}/status")
     @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_UPDATE + "')")
-    public MerchantResponse updateMerchantStatus(
+    public void updateMerchantStatus(
             @PathVariable Long merchantId,
             @RequestParam MerchantStatus status
     ) {
-        return merchantService.updateMerchantStatus(merchantId, status);
+        // Service method is now @Modifying/void for efficiency
+        merchantService.updateMerchantStatus(merchantId, status);
     }
 
-    @Operation(
-            summary = "Update Merchant & KYC Status",
-            description = "Administrative override for merchant account and verification status. Restricted to Admin/Super Admin."
-    )
-    @ResponseStatus(HttpStatus.OK)
-    @PatchMapping("{merchantId}/administrative-status")
-    @PreAuthorize("hasRole('"+ Roles.ADMIN +"') or hasRole('" + Roles.SUPER_ADMIN + "')")
-    public MerchantResponse updateMerchantStatusAndKyc(
-            @PathVariable Long merchantId,
-            @RequestBody @Valid UpdateMerchantStatusRequest request
-    ) {
-        return merchantService.updateMerchantStatusAndKycStatus(
-                merchantId,
-                request.merchantStatus(),
-                request.kycStatus()
-        );
-    }
-
-    @Operation(
-            summary = "Update KYC Level",
-            description = "Manually verify or reject merchant KYC documents. Requires MERCHANT_KYC authority."
-    )
+    @Operation(summary = "Update KYC Level")
     @PatchMapping("{merchantId}/kyc")
     @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_KYC + "')")
-    public MerchantResponse updateKycStatus(
+    public void updateKycStatus(
             @PathVariable Long merchantId,
             @RequestParam KycStatus kycStatus
     ) {
-        return merchantService.updateKycStatus(merchantId, kycStatus);
+        merchantService.updateKycStatus(merchantId, kycStatus);
     }
 
-    @Operation(
-            summary = "Upgrade Tier",
-            description = "Increase merchant transaction limits. Requires MERCHANT_UPDATE authority."
-    )
+    @Operation(summary = "Upgrade Tier")
     @PatchMapping("{merchantId}/tier/upgrade")
     @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_UPDATE + "')")
-    public MerchantResponse upgradeTier(@PathVariable Long merchantId) {
-        return merchantService.upgradeTier(merchantId);
+    public void upgradeTier(@PathVariable Long merchantId) {
+        merchantService.upgradeTier(merchantId);
     }
 
-    @Operation(
-            summary = "Downgrade Tier",
-            description = "Reduce merchant transaction limits. Requires MERCHANT_UPDATE authority."
-    )
-    @PatchMapping("{merchantId}/tier/downgrade")
-    @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_UPDATE + "')")
-    public MerchantResponse downgradeTier(@PathVariable Long merchantId) {
-        return merchantService.downgradeTier(merchantId);
-    }
-
-    @Operation(
-            summary = "Delete Merchant",
-            description = "Soft delete a merchant record. Requires MERCHANT_DELETE authority."
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "204", description = "Merchant successfully deleted", content = @Content)
-    })
+    @Operation(summary = "Delete Merchant")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("{merchantId}")
     @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_DELETE + "')")

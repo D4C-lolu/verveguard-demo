@@ -4,7 +4,11 @@ import com.interswitch.verveguarddemo.models.enums.FraudStatus;
 import com.interswitch.verveguarddemo.models.projections.FraudAttemptRecord;
 import com.interswitch.verveguarddemo.models.projections.StaticFraudData;
 import com.interswitch.verveguarddemo.models.response.FraudAttemptResponse;
+import com.interswitch.verveguarddemo.models.response.MerchantInfo;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -23,87 +27,81 @@ public class FraudDao {
 
     private final NamedParameterJdbcTemplate namedJdbc;
 
-    public StaticFraudData getStaticEvaluationData(String accountNumber, String cardHash, OffsetDateTime since) {
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("accountNumber", accountNumber)
-                .addValue("cardHash", cardHash)
-                .addValue("since", since);
-
+    public StaticFraudData getEvaluationData(String cardHash) {
         return namedJdbc.queryForObject(
-                "SELECT * FROM sp_fraud_get_evaluation_data(:accountNumber, :cardHash, :since)",
-                params,
+                "SELECT * FROM sp_fraud_get_evaluation_data(:cardHash)",
+                new MapSqlParameterSource("cardHash", cardHash),
                 (rs, _) -> new StaticFraudData(
-                        rs.getBoolean("is_blacklisted"),
+                        rs.getBoolean("is_card_blocked"),
+                        rs.getBoolean("is_merchant_blacklisted"),
                         rs.getBigDecimal("transaction_limit"),
-                        rs.getObject("merchant_id", Long.class)
+                        rs.getLong("merchant_id")
                 )
         );
     }
 
     public void insertFraudAttempt(FraudAttemptRecord record) {
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("cardHash", record.cardHash())
-                .addValue("merchantId", record.merchantId())
-                .addValue("ipAddress", record.ipAddress())
-                .addValue("amount", record.amount())
-                .addValue("currency", record.currency())
-                .addValue("status", record.status().name())
-                .addValue("flags", record.flags().toArray(new String[0]));
-
         namedJdbc.update(
-                "SELECT sp_fraud_insert_attempt(:cardHash, :merchantId, :ipAddress, :amount, :currency, :status, :flags)",
-                params
+                "SELECT sp_fraud_insert_attempt(:cardHash, :merchantId, :ipAddress, " +
+                        ":amount, :currency, :status, :flags)",
+                new MapSqlParameterSource()
+                        .addValue("cardHash",   record.cardHash())
+                        .addValue("merchantId", record.merchantId())
+                        .addValue("ipAddress",  record.ipAddress())
+                        .addValue("amount",     record.amount())
+                        .addValue("currency",   record.currency())
+                        .addValue("status",     record.status().name())
+                        .addValue("flags",      record.flags().toArray(new String[0]))
         );
     }
 
+    // Fallback only — normally covered by getEvaluationData
     public int getCardVelocityCount(String cardHash, OffsetDateTime since) {
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("cardHash", cardHash)
-                .addValue("since", since);
         Integer count = namedJdbc.queryForObject(
                 "SELECT sp_fraud_get_card_velocity_count(:cardHash, :since)",
-                params, Integer.class
+                new MapSqlParameterSource()
+                        .addValue("cardHash", cardHash)
+                        .addValue("since",    since),
+                Integer.class
         );
         return count != null ? count : 0;
     }
 
-    public Optional<BigDecimal> getMerchantSingleLimitByAccount(String accountNumber) {
+    // Fallback only — normally covered by getEvaluationData
+    public boolean isBlacklistedByCardNumber(String cardNumber) {
+        return Boolean.TRUE.equals(namedJdbc.queryForObject(
+                "SELECT sp_fraud_is_blacklisted_by_card_number(:cardNumber)",
+                new MapSqlParameterSource("cardNumber", cardNumber),
+                Boolean.class
+        ));
+    }
+
+    // Fallback only — normally covered by getEvaluationData
+    public Optional<BigDecimal> getTransactionLimitByCardNumber(String cardNumber) {
         BigDecimal limit = namedJdbc.queryForObject(
-                "SELECT sp_fraud_get_merchant_single_limit_by_account(:accountNumber)",
-                new MapSqlParameterSource("accountNumber", accountNumber),
+                "SELECT sp_fraud_get_transaction_limit_by_card_number(:cardNumber)",
+                new MapSqlParameterSource("cardNumber", cardNumber),
                 BigDecimal.class
         );
         return Optional.ofNullable(limit);
     }
 
-    public boolean isMerchantActivelyBlacklistedByAccount(Long accountId) {
-        Boolean result = namedJdbc.queryForObject(
-                "SELECT sp_blacklist_is_actively_blacklisted_by_account(:accountId)",
-                new MapSqlParameterSource("accountId", accountId),
-                Boolean.class
-        );
-        return Boolean.TRUE.equals(result);
-    }
+    public Page<FraudAttemptResponse> getFraudAttempts(int page, int size) {
+        long[] total = {0};
 
-    public List<FraudAttemptResponse> getFraudAttempts(int limit, int offset) {
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("limit", limit)
-                .addValue("offset", offset);
-        return namedJdbc.query(
+        List<FraudAttemptResponse> content = namedJdbc.query(
                 "SELECT * FROM sp_fraud_get_attempts(:limit, :offset)",
-                params, fraudAttemptRowMapper()
+                new MapSqlParameterSource()
+                        .addValue("limit",  size)
+                        .addValue("offset", (long) (page - 1) * size),
+                (rs, rowNum) -> {
+                    if (rowNum == 0) total[0] = rs.getLong("total_count");
+                    return fraudAttemptRowMapper().mapRow(rs, rowNum);
+                }
         );
-    }
 
-    public long countFraudAttempts() {
-        Long count = namedJdbc.queryForObject(
-                "SELECT sp_fraud_count_attempts()",
-                new MapSqlParameterSource(),
-                Long.class
-        );
-        return count != null ? count : 0;
+        return new PageImpl<>(content, PageRequest.of(page - 1, size), total[0]);
     }
-
     private RowMapper<FraudAttemptResponse> fraudAttemptRowMapper() {
         return (rs, _) -> {
             Array flagsArray = rs.getArray("flags");
@@ -111,10 +109,19 @@ public class FraudDao {
                     ? Arrays.asList((String[]) flagsArray.getArray())
                     : List.of();
 
+            MerchantInfo merchant = new MerchantInfo(
+                    rs.getString("merchant_firstname"),
+                    rs.getString("merchant_lastname"),
+                    rs.getString("merchant_othername"),
+                    rs.getString("merchant_email"),
+                    rs.getString("merchant_phone")
+            );
+
             return new FraudAttemptResponse(
                     rs.getLong("id"),
                     rs.getString("card_hash"),
                     rs.getLong("merchant_id"),
+                    merchant,
                     rs.getString("ip_address"),
                     rs.getBigDecimal("amount"),
                     rs.getString("currency"),

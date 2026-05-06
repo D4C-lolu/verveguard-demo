@@ -38,12 +38,6 @@ public class TierConfig extends MutableAudit {
     @Column(nullable = false, precision = 19, scale = 4)
     private BigDecimal monthlyTransactionLimit;
 
-    @Column(nullable = false)
-    private Integer maxCards;
-
-    @Column(nullable = false)
-    private Integer maxAccounts;
-
     public TierConfig(Long id) {
         this.id = id;
     }

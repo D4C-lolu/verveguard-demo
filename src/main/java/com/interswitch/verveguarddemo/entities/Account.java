@@ -1,13 +1,13 @@
 package com.interswitch.verveguarddemo.entities;
 
-import com.interswitch.verveguarddemo.entities.audit.TimestampAudit;
-import com.interswitch.verveguarddemo.models.enums.AccountStatus;
 import com.interswitch.verveguarddemo.models.enums.AccountType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
+import org.springframework.data.annotation.CreatedDate;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.Objects;
 
 @Getter
@@ -17,15 +17,15 @@ import java.util.Objects;
 @AllArgsConstructor
 @Entity
 @Table(name = "accounts")
-public class Account extends TimestampAudit {
+public class Account {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "merchant_id", nullable = false)
-    private Merchant merchant;
+    @OneToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "card_id", nullable = false)
+    private Card card;
 
     @Column(nullable = false, unique = true, length = 20)
     private String accountNumber;
@@ -40,12 +40,9 @@ public class Account extends TimestampAudit {
     @Column(nullable = false, precision = 19, scale = 4)
     private BigDecimal balance;
 
-    @Column(nullable = false, precision = 19, scale = 4)
-    private BigDecimal ledgerBalance;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "account_status", nullable = false, length = 50)
-    private AccountStatus accountStatus;
+    @CreatedDate
+    @Column(nullable = false, updatable = false)
+    protected OffsetDateTime createdAt;
 
     public Account(Long id) {
         this.id = id;
@@ -82,7 +79,6 @@ public class Account extends TimestampAudit {
                 ", accountNumber='" + accountNumber + '\'' +
                 ", currency='" + currency + '\'' +
                 ", balance=" + balance +
-                ", accountStatus=" + accountStatus +
                 '}';
     }
 }

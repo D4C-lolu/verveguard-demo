@@ -29,9 +29,9 @@ public class Card extends TimestampAudit {
     @Column(nullable = false, unique = true, length = 19)
     private String cardHash;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id", nullable = false)
-    private Account account;
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "merchant_id", nullable = false)
+    private Merchant merchant;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "card_type", nullable = false, length = 50)

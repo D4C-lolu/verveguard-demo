@@ -10,6 +10,7 @@ public record FraudAttemptResponse(
         Long id,
         String cardHash,
         Long merchantId,
+        MerchantInfo merchant,
         String ipAddress,
         BigDecimal amount,
         String currency,

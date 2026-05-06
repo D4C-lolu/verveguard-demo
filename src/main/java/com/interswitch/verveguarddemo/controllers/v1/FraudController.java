@@ -4,8 +4,10 @@ import com.interswitch.verveguarddemo.constants.Permissions;
 import com.interswitch.verveguarddemo.constants.Roles;
 import com.interswitch.verveguarddemo.models.enums.FraudStatus;
 import com.interswitch.verveguarddemo.models.projections.FraudEvaluationContext;
+import com.interswitch.verveguarddemo.models.request.FraudEvaluationRequest;
 import com.interswitch.verveguarddemo.models.response.FraudAttemptResponse;
 import com.interswitch.verveguarddemo.services.FraudDetectionService;
+import com.interswitch.verveguarddemo.util.IpUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -13,6 +15,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -41,12 +44,13 @@ public class FraudController {
             @ApiResponse(responseCode = "401", description = "Unauthorized"),
             @ApiResponse(responseCode = "403", description = "Insufficient permissions")
     })
-    public FraudStatus evaluate(@RequestBody @Valid FraudEvaluationContext request) {
-        return fraudDetectionService.evaluate(request);
+    public FraudStatus evaluate(@RequestBody @Valid FraudEvaluationRequest request, HttpServletRequest httpServletRequest) {
+        return fraudDetectionService.evaluate(request, IpUtil.extractIp(httpServletRequest));
     }
 
     @PostMapping("evaluate/{merchantId}")
     @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize("hasRole('" + Roles.SUPER_ADMIN + "')")
     @Operation(
             summary = "Evaluate a transaction for fraud with specific merchant",
             description = "Runs a transaction through the engine using an explicit Merchant ID. Hard blocks return BLOCKED, soft flags return SUSPICIOUS."
@@ -55,13 +59,13 @@ public class FraudController {
             @ApiResponse(responseCode = "200", description = "Evaluation complete",
                     content = @Content(schema = @Schema(implementation = FraudStatus.class))),
             @ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @ApiResponse(responseCode = "403", description = "Insufficient permissions")
+            @ApiResponse(responseCode = "403", description = "Restricted to SUPER_ADMIN only")
     })
     public FraudStatus evaluateForMerchant(
             @PathVariable Long merchantId,
-            @RequestBody @Valid FraudEvaluationContext ctx) {
-
-        return fraudDetectionService.evaluate(ctx, merchantId);
+            @RequestBody @Valid FraudEvaluationRequest request,
+            HttpServletRequest httpServletRequest) {
+        return fraudDetectionService.evaluateForMerchant(request, merchantId,  IpUtil.extractIp(httpServletRequest));
     }
 
     @GetMapping("attempts")

@@ -1,241 +1,113 @@
 package com.interswitch.verveguarddemo.services;
 
-import com.interswitch.verveguarddemo.constants.Roles;
-import com.interswitch.verveguarddemo.dao.MerchantDao;
+import com.interswitch.verveguarddemo.entities.Merchant;
+import com.interswitch.verveguarddemo.entities.Role;
 import com.interswitch.verveguarddemo.exceptions.BadRequestException;
-import com.interswitch.verveguarddemo.exceptions.ConflictException;
 import com.interswitch.verveguarddemo.exceptions.NotFoundException;
 import com.interswitch.verveguarddemo.models.enums.KycStatus;
 import com.interswitch.verveguarddemo.models.enums.MerchantStatus;
 import com.interswitch.verveguarddemo.models.enums.MerchantTier;
-import com.interswitch.verveguarddemo.models.projections.MerchantValidationResult;
-import com.interswitch.verveguarddemo.models.request.CreateMerchantRequest;
-import com.interswitch.verveguarddemo.models.request.CreateUserRequest;
-import com.interswitch.verveguarddemo.models.request.MerchantSignupRequest;
-import com.interswitch.verveguarddemo.models.request.UpdateMerchantRequest;
+import com.interswitch.verveguarddemo.models.request.*;
 import com.interswitch.verveguarddemo.models.response.MerchantResponse;
-import com.interswitch.verveguarddemo.models.response.UserResponse;
+import com.interswitch.verveguarddemo.repositories.MerchantRepository;
 import com.interswitch.verveguarddemo.util.SecurityUtil;
+import com.interswitch.verveguarddemo.util.ValidationUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.OffsetDateTime;
-import java.util.Set;
-
+import java.util.List;
+import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class MerchantService {
 
-    private final MerchantDao merchantDao;
-    private final UserService userService;
-
-    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
-            "id", "user_id", "kyc_status", "merchant_status", "tier", "created_at", "updated_at"
-    );
+    private final MerchantRepository merchantRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
+    @CacheEvict(value = "merchants-page", allEntries = true)
     public MerchantResponse createMerchant(CreateMerchantRequest request) {
+        List<Map<String, Object>> conflicts = merchantRepository.validateForCreate(request.email(), request.phone());
+        ValidationUtil.checkConflicts(conflicts, request.email(), request.phone());
 
-        MerchantValidationResult validation = merchantDao.validateMerchantCreation(
-                request.userId(),
-                MerchantTier.TIER_1.name()
-        );
+        Long currentUserId = SecurityUtil.findCurrentUserId().orElse(null);
 
-        if (validation.merchantExists()) {
-            throw new ConflictException("User already has a merchant account");
-        }
-        if (!validation.userExists()) {
-            throw new NotFoundException("User not found");
-        }
-        if (!validation.tierExists()) {
-            throw new NotFoundException("Tier configuration not found for TIER_1");
-        }
+        Merchant merchant = Merchant.builder()
+                .firstname(request.firstname())
+                .lastname(request.lastname())
+                .othername(request.othername())
+                .email(request.email())
+                .phone(request.phone())
+                .passwordHash(passwordEncoder.encode(request.password()))
+                .role(new Role(request.roleId()))
+                .address(request.address())
+                .kycStatus(KycStatus.PENDING)
+                .merchantStatus(MerchantStatus.INACTIVE)
+                .tier(MerchantTier.TIER_1)
+                .build();
 
-        Long createdBy = SecurityUtil.findCurrentUserId().orElse(null);
+        merchant.setCreatedBy(currentUserId);
+        merchantRepository.save(merchant);
 
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("userId", request.userId())
-                .addValue("address", request.address())
-                .addValue("kycStatus", KycStatus.PENDING.name())
-                .addValue("merchantStatus", MerchantStatus.INACTIVE.name())
-                .addValue("tier", MerchantTier.TIER_1.name())
-                .addValue("createdBy", createdBy);
-
-        Long id = merchantDao.insert(params);
-        return getMerchantById(id);
+        return getMerchantById(merchant.getId());
     }
 
-    @Transactional
-    public MerchantResponse selfRegisterExistingUser(String address) {
-        Long userId = SecurityUtil.getCurrentUserId();
-        return createMerchant(new CreateMerchantRequest(userId, address));
-    }
-
-    @Transactional
-    public MerchantResponse registerNewUserAsMerchant(MerchantSignupRequest request) {
-        Long roleId = merchantDao.findRoleIdByName(Roles.USER)
-                .orElseThrow(() -> new NotFoundException("Merchant role not found"));
-
-        UserResponse newUser = userService.createUser(new CreateUserRequest(
-                request.firstname(),
-                request.lastname(),
-                request.othername(),
-                request.email(),
-                request.phone(),
-                request.password(),
-                roleId
-        ));
-
-        return createMerchant(new CreateMerchantRequest(newUser.id(), request.address()));
-    }
-
-    @Transactional
-    public MerchantResponse updateMerchant(Long merchantId, UpdateMerchantRequest request) {
-        MerchantResponse existing = getMerchantById(merchantId);
-        Long updatedBy = SecurityUtil.findCurrentUserId().orElse(null);
-        String newAddress = request.address() != null ? request.address() : existing.address();
-
-        merchantDao.updateAddress(merchantId, newAddress, updatedBy);
-
-        return buildUpdateResponse(existing, newAddress, existing.kycStatus(), existing.merchantStatus(), existing.tier());
-    }
-
-    @Transactional
-    public MerchantResponse updateKycStatus(Long merchantId, KycStatus kycStatus) {
-        MerchantResponse existing = getMerchantById(merchantId);
-
-        if (existing.kycStatus() == KycStatus.APPROVED) {
-            throw new BadRequestException("Merchant KYC is already approved");
-        }
-
-        MerchantStatus newStatus = switch (kycStatus) {
-            case APPROVED -> MerchantStatus.ACTIVE;
-            case REJECTED -> MerchantStatus.INACTIVE;
-            default -> existing.merchantStatus();
-        };
-
-        Long updatedBy = SecurityUtil.findCurrentUserId().orElse(null);
-        merchantDao.updateKycStatus(merchantId, kycStatus.name(), updatedBy);
-
-        return buildUpdateResponse(existing, existing.address(), kycStatus, newStatus, existing.tier());
-    }
-
-    @Transactional
-    public MerchantResponse upgradeTier(Long merchantId) {
-        MerchantResponse existing = getMerchantById(merchantId);
-
-        if (existing.kycStatus() != KycStatus.APPROVED) {
-            throw new BadRequestException("Merchant must be KYC approved before upgrading tier");
-        }
-
-        MerchantTier nextTier = switch (existing.tier()) {
-            case TIER_1 -> MerchantTier.TIER_2;
-            case TIER_2 -> MerchantTier.TIER_3;
-            case TIER_3 -> throw new BadRequestException("Merchant is already on the highest tier");
-        };
-
-        if (merchantDao.tierDoesNotExist(nextTier.name())) {
-            throw new NotFoundException("Tier configuration not found for " + nextTier);
-        }
-
-        merchantDao.updateTier(merchantId, nextTier.name(), SecurityUtil.findCurrentUserId().orElse(null));
-        return buildUpdateResponse(existing, existing.address(), existing.kycStatus(), existing.merchantStatus(), nextTier);
-    }
-
-    @Transactional
-    public MerchantResponse downgradeTier(Long merchantId) {
-        MerchantResponse existing = getMerchantById(merchantId);
-
-        MerchantTier previousTier = switch (existing.tier()) {
-            case TIER_3 -> MerchantTier.TIER_2;
-            case TIER_2 -> MerchantTier.TIER_1;
-            case TIER_1 -> throw new BadRequestException("Merchant is already on the lowest tier");
-        };
-
-        if (merchantDao.tierDoesNotExist(previousTier.name())) {
-            throw new NotFoundException("Tier configuration not found for " + previousTier);
-        }
-
-        merchantDao.updateTier(merchantId, previousTier.name(), SecurityUtil.findCurrentUserId().orElse(null));
-        return buildUpdateResponse(existing, existing.address(), existing.kycStatus(), existing.merchantStatus(), previousTier);
-    }
-
-    @Transactional
-    public Page<MerchantResponse> getMerchantsByStatus(MerchantStatus status, int page, int size, String sortField, Sort.Direction sortDirection) {
-        return merchantDao.findByStatus(status, page, size, sortField, sortDirection);
-    }
-
-    @Transactional
-    public Page<MerchantResponse> getMerchantsByKycStatus(KycStatus kycStatus, int page, int size, String sortField, Sort.Direction sortDirection) {
-        return merchantDao.findByKycStatus(kycStatus, page, size, sortField, sortDirection);
-    }
-
-
-    @Transactional
-    public MerchantResponse updateMerchantStatusAndKycStatus(Long merchantId, MerchantStatus merchantStatus, KycStatus kycStatus) {
-        MerchantResponse existing = getMerchantById(merchantId);
-        Long updatedBy = SecurityUtil.findCurrentUserId().orElse(null);
-
-        merchantDao.updateMerchantStatusAndKycStatus(merchantId, merchantStatus.name(), kycStatus.name(), updatedBy);
-
-        return new MerchantResponse(
-                existing.id(), existing.address(), kycStatus, merchantStatus, existing.tier(),
-                existing.userId(), existing.userFirstname(), existing.userLastname(),
-                existing.userEmail(), existing.userPhone(), existing.userStatus(),
-                existing.createdAt(), OffsetDateTime.now()
-        );
-    }
-
-    @Transactional
-    public MerchantResponse updateMerchantStatus(Long merchantId, MerchantStatus status) {
-        MerchantResponse existing = getMerchantById(merchantId);
-        Long updatedBy = SecurityUtil.findCurrentUserId().orElse(null);
-
-        if (existing.kycStatus() != KycStatus.APPROVED && status == MerchantStatus.ACTIVE) {
-            throw new BadRequestException("Merchant must be KYC approved before activation");
-        }
-
-        merchantDao.updateMerchantStatus(merchantId, status.name(), updatedBy);
-
-        return new MerchantResponse(
-                existing.id(), existing.address(), existing.kycStatus(), status, existing.tier(),
-                existing.userId(), existing.userFirstname(), existing.userLastname(),
-                existing.userEmail(), existing.userPhone(), existing.userStatus(),
-                existing.createdAt(), OffsetDateTime.now()
-        );
-    }
-
-    @Transactional
-    public void deleteMerchant(Long merchantId) {
-        if (!merchantDao.exists(merchantId)) {
-            throw new NotFoundException("Merchant not found");
-        }
-        Long deletedBy = SecurityUtil.findCurrentUserId().orElse(null);
-        merchantDao.softDelete(merchantId, deletedBy);
-    }
-
-    public MerchantResponse getMerchantById(Long merchantId) {
-        return merchantDao.findById(merchantId)
+    @Cacheable(value = "merchants", key = "#id")
+    public MerchantResponse getMerchantById(Long id) {
+        return merchantRepository.findMerchantById(id)
                 .orElseThrow(() -> new NotFoundException("Merchant not found"));
     }
 
-    public Page<MerchantResponse> getAllMerchants(int page, int size, String sortField, Sort.Direction direction) {
-        return merchantDao.findAll(page, size, sortField, direction);
+    @Cacheable(value = "merchants-page", key = "#status + '-' + #page + '-' + #size + '-' + #sort + '-' + #dir")
+    public Page<MerchantResponse> getMerchantsByStatus(MerchantStatus status, int page, int size, String sort, Sort.Direction dir) {
+        return merchantRepository.findByMerchantStatus(status, PageRequest.of(page - 1, size, Sort.by(dir, sort)));
     }
 
-    private MerchantResponse buildUpdateResponse(MerchantResponse e, String addr, KycStatus kyc, MerchantStatus stat, MerchantTier tier) {
-        return new MerchantResponse(e.id(), addr, kyc, stat, tier, e.userId(), e.userFirstname(),
-                e.userLastname(), e.userEmail(), e.userPhone(), e.userStatus(), e.createdAt(), OffsetDateTime.now());
+    @Cacheable(value = "merchants-page", key = "#status + '-' + #page + '-' + #size + '-' + #sort + '-' + #dir")
+    public Page<MerchantResponse> getMerchantsByKycStatus(KycStatus status, int page, int size, String sort, Sort.Direction dir) {
+        return merchantRepository.findByKycStatus(status, PageRequest.of(page - 1, size, Sort.by(dir, sort)));
     }
 
-    private String validateSortField(String sortField) {
-        if (!ALLOWED_SORT_FIELDS.contains(sortField)) {
-            throw new BadRequestException("Invalid sort field: " + sortField);
+    @Transactional
+    @CacheEvict(value = "merchants", key = "#id")
+    public void updatePassword(Long id, ChangePasswordRequest request) {
+        String currentHash = merchantRepository.findPasswordHashById(id);
+        if (currentHash == null || !passwordEncoder.matches(request.currentPassword(), currentHash)) {
+            throw new BadRequestException("Current password incorrect");
         }
-        return sortField;
+        merchantRepository.updatePassword(id, passwordEncoder.encode(request.newPassword()), SecurityUtil.getCurrentUserId());
+    }
+
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "merchants", key = "#id"),
+            @CacheEvict(value = "merchants-page", allEntries = true)
+    })
+    public void updateKycStatus(Long id, KycStatus kycStatus) {
+        merchantRepository.updateKycStatus(id, kycStatus, SecurityUtil.getCurrentUserId());
+    }
+
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "merchants", key = "#id"),
+            @CacheEvict(value = "merchants-page", allEntries = true)
+    })
+    public void upgradeTier(Long id) {
+        MerchantTier existingTier = merchantRepository.findMerchantTierById(id)
+                .orElseThrow(()-> new NotFoundException("Merchant not found"));
+        MerchantTier nextTier = switch (existingTier) {
+            case TIER_1 -> MerchantTier.TIER_2;
+            case TIER_2 -> MerchantTier.TIER_3;
+            case TIER_3 -> throw new BadRequestException("Already at highest tier");
+        };
+        merchantRepository.updateTier(id, nextTier, SecurityUtil.getCurrentUserId());
     }
 }

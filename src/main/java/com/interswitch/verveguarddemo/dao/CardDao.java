@@ -1,13 +1,15 @@
 package com.interswitch.verveguarddemo.dao;
 
-import com.interswitch.verveguarddemo.models.enums.*;
+import com.interswitch.verveguarddemo.models.enums.CardScheme;
+import com.interswitch.verveguarddemo.models.enums.CardStatus;
+import com.interswitch.verveguarddemo.models.enums.CardType;
 import com.interswitch.verveguarddemo.models.projections.CardValidationResult;
-import com.interswitch.verveguarddemo.models.projections.MerchantAccountLink;
 import com.interswitch.verveguarddemo.models.request.CreateCardRequest;
 import com.interswitch.verveguarddemo.models.response.CardResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -23,133 +25,106 @@ public class CardDao {
 
     private final NamedParameterJdbcTemplate namedJdbc;
 
-    public Long insert(CreateCardRequest request, String cardHash, String maskedCardNumber, Long createdBy) {
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("cardNumber", maskedCardNumber)
-                .addValue("cardHash", cardHash)
-                .addValue("accountId", request.accountId())
-                .addValue("cardType", request.cardType().name())
-                .addValue("scheme", request.scheme().name())
-                .addValue("expiryMonth", request.expiryMonth())
-                .addValue("expiryYear", request.expiryYear())
-                .addValue("cardStatus", CardStatus.ACTIVE.name())
-                .addValue("createdBy", createdBy);
-
+    public Long insert(Long merchantId, String maskedCardNumber, String cardHash,
+                       CreateCardRequest request, Long createdBy) {
         return namedJdbc.queryForObject(
-                "SELECT sp_card_insert(:cardNumber, :cardHash, :accountId, :cardType, :scheme, :expiryMonth::smallint, :expiryYear::smallint, :cardStatus, :createdBy)",
-                params, Long.class
-        );
+                "SELECT sp_card_insert(:merchantId, :cardNumber, :cardHash, :cardType, :scheme, " +
+                        ":expiryMonth::smallint, :expiryYear::smallint, :cardStatus, :createdBy)",
+                new MapSqlParameterSource()
+                        .addValue("merchantId",  merchantId)
+                        .addValue("cardNumber",  maskedCardNumber)
+                        .addValue("cardHash",    cardHash)
+                        .addValue("cardType",    request.cardType().name())
+                        .addValue("scheme",      request.scheme().name())
+                        .addValue("expiryMonth", request.expiryMonth())
+                        .addValue("expiryYear",  request.expiryYear())
+                        .addValue("cardStatus",  CardStatus.ACTIVE.name())
+                        .addValue("createdBy",   createdBy),
+                Long.class);
     }
 
-    @Cacheable(value = "card", key = "#cardId")
-    public Optional<CardResponse> findById(Long cardId) {
+    public Optional<CardResponse> findByMerchantId(Long merchantId) {
         return namedJdbc.query(
-                "SELECT * FROM sp_card_find_by_id(:id)",
-                new MapSqlParameterSource("id", cardId),
+                "SELECT * FROM sp_card_find_by_merchant(:merchantId)",
+                new MapSqlParameterSource("merchantId", merchantId),
                 cardRowMapper()
         ).stream().findFirst();
     }
 
-    public List<CardResponse> findByAccountWithCount(MapSqlParameterSource params, String sortField, String direction, long[] total) {
-        params.addValue("sortField", sortField);
-        params.addValue("sortDirection", direction);
+    public Optional<CardResponse> findByCardNumber(String cardNumber) {
         return namedJdbc.query(
-                "SELECT * FROM sp_card_find_by_account(:accountId, :limit, :offset, :sortField, :sortDirection)",
-                params, (rs, rowNum) -> {
-                    total[0] = rs.getLong("total_count");
-                    return cardRowMapper().mapRow(rs, rowNum);
-                });
-    }
-
-    public boolean exists(Long cardId) {
-        return Boolean.TRUE.equals(namedJdbc.queryForObject(
-                "SELECT sp_card_exists(:id)",
-                new MapSqlParameterSource("id", cardId),
-                Boolean.class
-        ));
-    }
-
-    @CacheEvict(value = "card", key = "#cardId")
-    public void blockCard(Long cardId, Long updatedBy) {
-        namedJdbc.queryForList(
-                "SELECT sp_card_block(:id, :updatedBy)",
-                new MapSqlParameterSource()
-                        .addValue("id", cardId)
-                        .addValue("updatedBy", updatedBy)
-        );
-    }
-
-    public boolean isMerchantOwnerOfCard(Long cardId, Long userId) {
-        return Boolean.TRUE.equals(namedJdbc.queryForObject(
-                "SELECT sp_card_is_merchant_owner(:cardId, :userId)",
-                new MapSqlParameterSource().addValue("cardId", cardId).addValue("userId", userId),
-                Boolean.class
-        ));
-    }
-
-    public Optional<MerchantAccountLink> validateMerchantAccountOwnership(Long userId, Long accountId) {
-        return namedJdbc.query(
-                "SELECT * FROM sp_card_validate_merchant_account(:userId, :accountId)",
-                new MapSqlParameterSource().addValue("userId", userId).addValue("accountId", accountId),
-                (rs, _) -> new MerchantAccountLink(rs.getLong("merchant_id"))
+                "SELECT * FROM sp_card_find_by_card_number(:cardNumber)",
+                new MapSqlParameterSource("cardNumber", cardNumber),
+                cardRowMapper()
         ).stream().findFirst();
     }
 
-    public Optional<CardValidationResult> getCardCreationValidation(Long accountId, String cardHash) {
+    public Page<CardResponse> findAll(int page, int size, String sortField, String sortDir) {
+        long[] total = {0};
+
+        List<CardResponse> content = namedJdbc.query(
+                "SELECT * FROM sp_card_find_all(:limit, :offset, :sortField, :sortDir)",
+                new MapSqlParameterSource()
+                        .addValue("limit",     size)
+                        .addValue("offset",    (long) (page - 1) * size)
+                        .addValue("sortField", sortField)
+                        .addValue("sortDir",   sortDir),
+                (rs, rowNum) -> {
+                    if (rowNum == 0) total[0] = rs.getLong("total_count");
+                    return cardRowMapper().mapRow(rs, rowNum);
+                });
+
+        return new PageImpl<>(content, PageRequest.of(page - 1, size), total[0]);
+    }
+
+    public Optional<CardValidationResult> getCardCreationValidation(Long merchantId, String cardHash) {
         return namedJdbc.query(
-                "SELECT * FROM sp_card_get_creation_validation(:accountId, :cardHash)",
-                new MapSqlParameterSource().addValue("accountId", accountId).addValue("cardHash", cardHash),
+                "SELECT * FROM sp_card_get_creation_validation(:merchantId, :cardHash)",
+                new MapSqlParameterSource()
+                        .addValue("merchantId", merchantId)
+                        .addValue("cardHash",   cardHash),
                 (rs, _) -> new CardValidationResult(
-                        rs.getLong("account_id"),
-                        rs.getLong("merchant_id"),
-                        rs.getString("tier"),
-                        rs.getInt("max_cards"),
-                        rs.getInt("current_card_count"),
-                        rs.getBoolean("card_hash_exists")
-                )).stream().findFirst();
+                        rs.getString("kyc_status"),
+                        rs.getBoolean("card_hash_exists"),
+                        rs.getBoolean("already_has_card")
+                )
+        ).stream().findFirst();
     }
 
-    @CacheEvict(value = "card", key = "#cardId")
-    public void updateStatus(Long cardId, String status, Long updatedBy) {
-        namedJdbc.queryForList(
-                "SELECT sp_card_update_status(:id, :status, :updatedBy)",
+    public boolean exists(Long id) {
+        return Boolean.TRUE.equals(namedJdbc.queryForObject(
+                "SELECT sp_card_exists(:id)",
+                new MapSqlParameterSource("id", id),
+                Boolean.class));
+    }
+
+    public void blockCard(Long id, Long updatedBy) {
+        namedJdbc.update(
+                "SELECT sp_card_block(:id, :updatedBy)",
                 new MapSqlParameterSource()
-                        .addValue("id", cardId)
-                        .addValue("status", status)
-                        .addValue("updatedBy", updatedBy)
-        );
+                        .addValue("id",        id)
+                        .addValue("updatedBy", updatedBy));
     }
 
-    @CacheEvict(value = "card", key = "#cardId")
-    public void softDelete(Long cardId, Long deletedBy) {
-        namedJdbc.queryForList(
-                "SELECT sp_card_soft_delete(:id, :deletedBy)",
-                new MapSqlParameterSource()
-                        .addValue("id", cardId)
-                        .addValue("deletedBy", deletedBy)
-        );
-    }
-
-    public boolean blockByHash(String cardHash) {
-        return namedJdbc.query(
-                "SELECT * FROM sp_card_block_by_hash(:cardHash)",
-                new MapSqlParameterSource("cardHash", cardHash),
-                (rs, _) -> rs.getBoolean("was_blocked")
-        ).stream().findFirst().orElse(false);
+    public void expireDueCards() {
+        namedJdbc.update("SELECT sp_card_expire_due()", new MapSqlParameterSource());
     }
 
     private RowMapper<CardResponse> cardRowMapper() {
         return (rs, _) -> new CardResponse(
                 rs.getLong("id"),
-                rs.getLong("account_id"),
+                rs.getLong("merchant_id"),
                 rs.getString("card_number"),
                 CardType.valueOf(rs.getString("card_type")),
                 CardScheme.valueOf(rs.getString("scheme")),
                 rs.getInt("expiry_month"),
                 rs.getInt("expiry_year"),
                 CardStatus.valueOf(rs.getString("card_status")),
+                rs.getString("account_number"),
+                rs.getString("account_type"),
+                rs.getString("currency"),
+                rs.getBigDecimal("balance"),
                 rs.getObject("created_at", OffsetDateTime.class),
-                rs.getObject("updated_at", OffsetDateTime.class)
-        );
+                rs.getObject("updated_at", OffsetDateTime.class));
     }
 }

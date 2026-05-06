@@ -1,17 +1,13 @@
 package com.interswitch.verveguarddemo.services;
 
-import com.interswitch.verveguarddemo.dao.UserDao;
 import com.interswitch.verveguarddemo.exceptions.InvalidTokenException;
 import com.interswitch.verveguarddemo.models.enums.PrincipalType;
 import com.interswitch.verveguarddemo.models.response.AuthResponse;
 import com.interswitch.verveguarddemo.security.UserDetailsServiceImpl;
 import com.interswitch.verveguarddemo.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
-
-import java.util.Collection;
 
 @Service
 @RequiredArgsConstructor

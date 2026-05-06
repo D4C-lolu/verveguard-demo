@@ -4,7 +4,6 @@ import com.interswitch.verveguarddemo.models.enums.KycStatus;
 import com.interswitch.verveguarddemo.models.enums.MerchantStatus;
 import com.interswitch.verveguarddemo.models.enums.MerchantTier;
 import com.interswitch.verveguarddemo.models.enums.UserStatus;
-import com.interswitch.verveguarddemo.models.projections.MerchantValidationResult;
 import com.interswitch.verveguarddemo.models.response.MerchantResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
@@ -28,7 +27,6 @@ public class MerchantDao {
 
     private final NamedParameterJdbcTemplate namedJdbc;
 
-    @Cacheable(value = "merchant", key = "#id")
     public Optional<MerchantResponse> findById(Long id) {
         return namedJdbc.query(
                 "SELECT * FROM sp_merchant_find_by_id(:id)",
@@ -78,48 +76,22 @@ public class MerchantDao {
         );
     }
 
-    private Page<MerchantResponse> queryPage(String sql, MapSqlParameterSource params, int page, int size) {
-        long[] totalHolder = {0L};
-
-        List<MerchantResponse> content = namedJdbc.query(sql, params, (rs, rowNum) -> {
-            if (rowNum == 0) totalHolder[0] = rs.getLong("total_count");
-            return merchantRowMapper().mapRow(rs, rowNum);
-        });
-
-        return new PageImpl<>(content, PageRequest.of(page - 1, size), totalHolder[0]);
-    }
-
     public Long insert(MapSqlParameterSource params) {
         return namedJdbc.queryForObject(
-                "SELECT sp_merchant_insert(:userId, :address, :kycStatus, :merchantStatus, :tier, :createdBy)",
+                "SELECT sp_merchant_insert(:firstname, :lastname, :othername, :email, :phone, " +
+                        ":passwordHash, :roleId, :address, :kycStatus, :merchantStatus, :tier, :createdBy)",
                 params, Long.class
         );
     }
 
-    public MerchantValidationResult validateMerchantCreation(Long userId, String tier) {
-        return namedJdbc.queryForObject(
-                "SELECT * FROM sp_merchant_validate_creation(:userId, :tier)",
-                new MapSqlParameterSource()
-                        .addValue("userId", userId)
-                        .addValue("tier", tier),
-                (rs, _) -> new MerchantValidationResult(
-                        rs.getBoolean("merchant_exists"),
-                        rs.getBoolean("user_exists"),
-                        rs.getBoolean("tier_exists")
-                ));
+    public boolean emailExists(String email) {
+        return Boolean.TRUE.equals(namedJdbc.queryForObject(
+                "SELECT sp_merchant_email_exists(:email)",
+                new MapSqlParameterSource("email", email),
+                Boolean.class
+        ));
     }
 
-    @Cacheable(value = "merchant-role-id", key = "#name")
-    public Optional<Long> findRoleIdByName(String name) {
-        Long result = namedJdbc.queryForObject(
-                "SELECT sp_merchant_find_role_id_by_name(:name)",
-                new MapSqlParameterSource("name", name),
-                Long.class
-        );
-        return Optional.ofNullable(result);
-    }
-
-    @Cacheable(value = "merchant-tier-exists", key = "#tier")
     public boolean tierDoesNotExist(String tier) {
         return !Boolean.TRUE.equals(namedJdbc.queryForObject(
                 "SELECT sp_merchant_tier_exists(:tier)",
@@ -136,9 +108,8 @@ public class MerchantDao {
         ));
     }
 
-    @CacheEvict(value = "merchant", key = "#id")
     public void updateAddress(Long id, String address, Long updatedBy) {
-        namedJdbc.queryForList(
+        namedJdbc.update(
                 "SELECT sp_merchant_update_address(:id, :address, :updatedBy)",
                 new MapSqlParameterSource()
                         .addValue("id", id)
@@ -147,9 +118,8 @@ public class MerchantDao {
         );
     }
 
-    @CacheEvict(value = "merchant", key = "#id")
     public void updateKycStatus(Long id, String kycStatus, Long updatedBy) {
-        namedJdbc.queryForList(
+        namedJdbc.update(
                 "SELECT sp_merchant_update_kyc_status(:id, :kycStatus, :updatedBy)",
                 new MapSqlParameterSource()
                         .addValue("id", id)
@@ -160,7 +130,7 @@ public class MerchantDao {
 
     @CacheEvict(value = "merchant", key = "#id")
     public void updateMerchantStatus(Long id, String merchantStatus, Long updatedBy) {
-        namedJdbc.queryForList(
+        namedJdbc.update(
                 "SELECT sp_merchant_update_status(:id, :merchantStatus, :updatedBy)",
                 new MapSqlParameterSource()
                         .addValue("id", id)
@@ -171,7 +141,7 @@ public class MerchantDao {
 
     @CacheEvict(value = "merchant", key = "#id")
     public void updateMerchantStatusAndKycStatus(Long id, String merchantStatus, String kycStatus, Long updatedBy) {
-        namedJdbc.queryForList(
+        namedJdbc.update(
                 "SELECT sp_merchant_update_status_and_kyc(:id, :merchantStatus, :kycStatus, :updatedBy)",
                 new MapSqlParameterSource()
                         .addValue("id", id)
@@ -183,7 +153,7 @@ public class MerchantDao {
 
     @CacheEvict(value = "merchant", key = "#id")
     public void updateTier(Long id, String tier, Long updatedBy) {
-        namedJdbc.queryForList(
+        namedJdbc.update(
                 "SELECT sp_merchant_update_tier(:id, :tier, :updatedBy)",
                 new MapSqlParameterSource()
                         .addValue("id", id)
@@ -194,7 +164,7 @@ public class MerchantDao {
 
     @CacheEvict(value = "merchant", key = "#id")
     public void softDelete(Long id, Long deletedBy) {
-        namedJdbc.queryForList(
+        namedJdbc.update(
                 "SELECT sp_merchant_soft_delete(:id, :deletedBy)",
                 new MapSqlParameterSource()
                         .addValue("id", id)
@@ -202,24 +172,33 @@ public class MerchantDao {
         );
     }
 
-    @Cacheable(value = ".verveguarddemo.-by-account", key = "#accountNumber")
+    @Cacheable(value = "merchant-email-by-account", key = "#accountNumber")
     public Optional<String> getEmailByAccountNumber(String accountNumber) {
-        String result = namedJdbc.queryForObject(
+        return Optional.ofNullable(namedJdbc.queryForObject(
                 "SELECT sp_merchant_get_email_by_account(:accountNumber)",
                 new MapSqlParameterSource("accountNumber", accountNumber),
                 String.class
-        );
-        return Optional.ofNullable(result);
+        ));
     }
 
     @Cacheable(value = "merchant-name-by-account", key = "#accountNumber")
     public Optional<String> getNameByAccountNumber(String accountNumber) {
-        String result = namedJdbc.queryForObject(
+        return Optional.ofNullable(namedJdbc.queryForObject(
                 "SELECT sp_merchant_get_name_by_account(:accountNumber)",
                 new MapSqlParameterSource("accountNumber", accountNumber),
                 String.class
-        );
-        return Optional.ofNullable(result);
+        ));
+    }
+
+    private Page<MerchantResponse> queryPage(String sql, MapSqlParameterSource params, int page, int size) {
+        long[] totalHolder = {0L};
+
+        List<MerchantResponse> content = namedJdbc.query(sql, params, (rs, rowNum) -> {
+            if (rowNum == 0) totalHolder[0] = rs.getLong("total_count");
+            return merchantRowMapper().mapRow(rs, rowNum);
+        });
+
+        return new PageImpl<>(content, PageRequest.of(page - 1, size), totalHolder[0]);
     }
 
     private RowMapper<MerchantResponse> merchantRowMapper() {
@@ -229,7 +208,6 @@ public class MerchantDao {
                 KycStatus.valueOf(rs.getString("kyc_status")),
                 MerchantStatus.valueOf(rs.getString("merchant_status")),
                 MerchantTier.valueOf(rs.getString("tier")),
-                rs.getLong("user_id"),
                 rs.getString("firstname"),
                 rs.getString("lastname"),
                 rs.getString("email"),

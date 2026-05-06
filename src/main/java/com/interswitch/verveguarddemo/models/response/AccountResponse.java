@@ -1,6 +1,5 @@
 package com.interswitch.verveguarddemo.models.response;
 
-import com.interswitch.verveguarddemo.models.enums.AccountStatus;
 import com.interswitch.verveguarddemo.models.enums.AccountType;
 
 import java.math.BigDecimal;
@@ -13,8 +12,5 @@ public record AccountResponse(
         AccountType accountType,
         String currency,
         BigDecimal balance,
-        BigDecimal ledgerBalance,
-        AccountStatus accountStatus,
-        OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
+        OffsetDateTime createdAt
 ) {}

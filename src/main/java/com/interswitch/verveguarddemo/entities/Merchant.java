@@ -19,6 +19,7 @@ import java.util.Objects;
 @Table(name = "merchants")
 public class Merchant extends FullAudit {
 
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

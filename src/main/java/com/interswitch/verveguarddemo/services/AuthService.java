@@ -3,7 +3,6 @@ package com.interswitch.verveguarddemo.services;
 import com.interswitch.verveguarddemo.models.request.LoginRequest;
 import com.interswitch.verveguarddemo.models.response.AuthResponse;
 import com.interswitch.verveguarddemo.security.UserPrincipal;
-import com.interswitch.verveguarddemo.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
