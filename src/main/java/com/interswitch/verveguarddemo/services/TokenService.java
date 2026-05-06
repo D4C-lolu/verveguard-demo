@@ -3,8 +3,9 @@ package com.interswitch.verveguarddemo.services;
 import com.interswitch.verveguarddemo.exceptions.InvalidTokenException;
 import com.interswitch.verveguarddemo.models.enums.PrincipalType;
 import com.interswitch.verveguarddemo.models.response.AuthResponse;
+import com.interswitch.verveguarddemo.security.AdminPrincipal;
+import com.interswitch.verveguarddemo.security.MerchantPrincipal;
 import com.interswitch.verveguarddemo.security.UserDetailsServiceImpl;
-import com.interswitch.verveguarddemo.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -16,11 +17,12 @@ public class TokenService {
     private final JwtService jwtService;
     private final UserDetailsServiceImpl userDetailsService;
 
-    public AuthResponse issueTokens(UserPrincipal principal) {
+    public AuthResponse issueTokens(UserDetails principal) {
         String accessToken  = jwtService.generateAccessToken(principal);
         String refreshToken = jwtService.generateRefreshToken(principal);
         return new AuthResponse(accessToken, refreshToken);
     }
+
 
     public AuthResponse refresh(String refreshToken) {
         if (jwtService.isTokenInvalid(refreshToken)) {

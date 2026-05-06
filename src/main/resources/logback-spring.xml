@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <springProperty name="LOKI_HOST" source="loki.host" defaultValue="localhost"/>
+
+    <conversionRule conversionWord="clr"
+                    class="org.springframework.boot.logging.logback.ColorConverter"/>
+    <conversionRule conversionWord="wex"
+                    class="org.springframework.boot.logging.logback.WhitespaceThrowableProxyConverter"/>
+
+    <property name="GREY"   value="%clr(%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX}){faint}"/>
+    <property name="APP"    value="%clr([${springAppName:-app}]){cyan}"/>
+    <property name="THREAD" value="%clr([%15.15t]){faint}"/>
+    <property name="LOGGER" value="%clr(%-40.40logger{39}){cyan}"/>
+
+    <!-- ═══════════════════════════════════════════════
+         CONSOLE (coloured) — dev only
+         ═══════════════════════════════════════════════ -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${GREY} ${APP} ${THREAD} %clr(%-5level){ERROR=bold_red, WARN=yellow, INFO=green, DEBUG=blue, TRACE=faint} %clr([traceId=%X{traceId:-NO_TRACE}]){magenta} %clr([spanId=%X{spanId:-NO_SPAN}]){yellow} ${LOGGER} : %msg%n%wex</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ═══════════════════════════════════════════════
+         CONSOLE (plain) — prod only
+         ═══════════════════════════════════════════════ -->
+    <appender name="CONSOLE_PLAIN" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} [%15.15t] %-5level [traceId=%X{traceId:-NO_TRACE}] [spanId=%X{spanId:-NO_SPAN}] %-40.40logger{39} : %msg%n%wex</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ═══════════════════════════════════════════════
+         LOKI — Loki4j 2.0.x schema
+         ═══════════════════════════════════════════════ -->
+    <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+        <http>
+            <url>http://${LOKI_HOST}:3100/loki/api/v1/push</url>
+            <requestTimeoutMs>5000</requestTimeoutMs>
+        </http>
+
+        <!-- 2.0.x: labels are top-level, one per line, no commas, no <pattern> wrapper -->
+        <labels>
+            app=wallet-app
+            level=%level
+        </labels>
+
+        <!-- 2.0.x: message is top-level with a nested <pattern> -->
+        <message>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [traceId=%X{traceId:-NO_TRACE}] [spanId=%X{spanId:-NO_SPAN}] %logger{39} : %msg%n%wex</pattern>
+        </message>
+
+        <!-- 2.0.x: batch is a top-level block -->
+        <batch>
+            <maxItems>1000</maxItems>
+            <maxBytes>4194304</maxBytes>
+            <timeoutMs>10000</timeoutMs>
+        </batch>
+    </appender>
+
+    <!-- ═══════════════════════════════════════════════
+         PROFILES
+         ═══════════════════════════════════════════════ -->
+
+    <springProfile name="dev">
+        <root level="DEBUG">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="LOKI"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE_PLAIN"/>
+            <appender-ref ref="LOKI"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="local">
+        <root level="DEBUG">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="LOKI"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="!(dev | prod | local)">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="LOKI"/>
+        </root>
+    </springProfile>
+
+</configuration>

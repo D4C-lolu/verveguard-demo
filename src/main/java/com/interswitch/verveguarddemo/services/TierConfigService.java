@@ -33,8 +33,6 @@ public class TierConfigService {
                 .dailyTransactionLimit(request.dailyTransactionLimit())
                 .singleTransactionLimit(request.singleTransactionLimit())
                 .monthlyTransactionLimit(request.monthlyTransactionLimit())
-                .maxCards(request.maxCards())
-                .maxAccounts(request.maxAccounts())
                 .build();
 
         return tierConfigMapper.map(tierConfigRepository.save(tierConfig));
@@ -48,8 +46,6 @@ public class TierConfigService {
         tierConfig.setDailyTransactionLimit(request.dailyTransactionLimit());
         tierConfig.setSingleTransactionLimit(request.singleTransactionLimit());
         tierConfig.setMonthlyTransactionLimit(request.monthlyTransactionLimit());
-        tierConfig.setMaxCards(request.maxCards());
-        tierConfig.setMaxAccounts(request.maxAccounts());
 
         return tierConfigMapper.map(tierConfigRepository.save(tierConfig));
     }

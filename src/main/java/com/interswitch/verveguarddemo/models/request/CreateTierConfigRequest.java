@@ -10,8 +10,6 @@ public record CreateTierConfigRequest(
         @NotNull MerchantTier tier,
         @NotNull @Positive BigDecimal dailyTransactionLimit,
         @NotNull @Positive BigDecimal singleTransactionLimit,
-        @NotNull @Positive BigDecimal monthlyTransactionLimit,
-        @NotNull @Positive Integer maxCards,
-        @NotNull @Positive Integer maxAccounts
+        @NotNull @Positive BigDecimal monthlyTransactionLimit
 ) {}
 

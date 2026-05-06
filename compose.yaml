@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: wallet-app
     environment:
-      SPRING_PROFILES_ACTIVE: dev
+      SPRING_PROFILES_ACTIVE: prod
       SERVER_PORT: ${SERVER_PORT}
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}

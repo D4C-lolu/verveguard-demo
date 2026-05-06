@@ -7,7 +7,6 @@ import com.interswitch.verveguarddemo.models.enums.PrincipalType;
 import com.interswitch.verveguarddemo.security.AdminPrincipal;
 import com.interswitch.verveguarddemo.security.JwtUserPrincipal;
 import com.interswitch.verveguarddemo.security.MerchantPrincipal;
-import com.interswitch.verveguarddemo.security.UserPrincipal;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -40,11 +39,11 @@ public class JwtService {
         return signingKey;
     }
 
-    public String generateAccessToken(UserPrincipal principal) {
+    public String generateAccessToken(UserDetails principal) {
         return generateToken(principal, jwtProperties.getAccessTokenExpiry());
     }
 
-    public String generateRefreshToken(UserPrincipal principal) {
+    public String generateRefreshToken(UserDetails principal) {
         return generateToken(principal, jwtProperties.getRefreshTokenExpiry());
     }
 
