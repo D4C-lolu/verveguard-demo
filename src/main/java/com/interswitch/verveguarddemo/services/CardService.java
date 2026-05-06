@@ -68,7 +68,7 @@ public class CardService {
                 .orElseThrow(() -> new NotFoundException("Card not found"));
     }
 
-    @Cacheable(value = "card", key = "'merchant:' + #merchantId")
+    @Cacheable(value = "card", key = "'merchant:' + T(com.interswitch.verveguarddemo.util.SecurityUtil).getCurrentUserId()")
     public CardResponse getMyCard() {
         Long merchantId = SecurityUtil.getCurrentUserId();
         return cardDao.findByMerchantId(merchantId)
@@ -90,7 +90,7 @@ public class CardService {
     }
 
     @Transactional
-    @CacheEvict(value = "card", key = "'merchant:' + @securityUtil.getCurrentUserId()")
+    @CacheEvict(value = "card", key = "'merchant:' + T(com.interswitch.verveguarddemo.util.SecurityUtil).getCurrentUserId()")
     public void blockMyCard() {
         Long merchantId = SecurityUtil.getCurrentUserId();
         CardResponse card = cardDao.findByMerchantId(merchantId)

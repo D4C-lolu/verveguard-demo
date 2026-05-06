@@ -1,9 +1,9 @@
 -- roles
 -- roles
-INSERT INTO roles (name) VALUES
-                             ('SUPER_ADMIN'),
-                             ('ADMIN'),
-                             ('MERCHANT');
+INSERT INTO roles (name, principal_type) VALUES
+                             ('SUPER_ADMIN', 'ADMIN'),
+                             ('ADMIN', 'ADMIN'),
+                             ('MERCHANT', 'MERCHANT');
 
 INSERT INTO permissions (name, description) VALUES
     -- merchant management

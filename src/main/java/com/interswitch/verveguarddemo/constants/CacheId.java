@@ -27,6 +27,7 @@ public enum CacheId {
     // Blacklist
     BLACKLIST("blacklist"),
     BLACKLISTED_MERCHANT("blacklisted-merchant"),
+    FRAUD_EVALUATION("fraud-eval"),
 
     // Tier
     TIER_CONFIG("tier-config"),

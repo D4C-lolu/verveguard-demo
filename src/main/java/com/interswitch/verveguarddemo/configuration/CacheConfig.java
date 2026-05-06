@@ -3,12 +3,15 @@ package com.interswitch.verveguarddemo.configuration;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.interswitch.verveguarddemo.cache.TieredCacheManager;
 import com.interswitch.verveguarddemo.constants.CacheId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.cache.RedisCacheWriter;
@@ -40,7 +43,18 @@ public class CacheConfig {
     }
 
     @Bean
-    public CacheManager cacheManager(RedisConnectionFactory connectionFactory, ObjectMapper objectMapper) {
+    public CaffeineCacheManager caffeineCacheManager() {
+        CaffeineCacheManager manager = new CaffeineCacheManager(CacheId.FRAUD_EVALUATION.getCacheName()); // only fraud-eval gets L1
+        manager.setCaffeine(Caffeine.newBuilder()
+                .maximumSize(500)
+                .expireAfterWrite(2, TimeUnit.MINUTES)
+                .recordStats());
+        manager.setAllowNullValues(false);
+        return manager;
+    }
+
+    @Bean
+    public RedisCacheManager redisCacheManager(RedisConnectionFactory connectionFactory, ObjectMapper objectMapper) {
         PolymorphicTypeValidator typeValidator = BasicPolymorphicTypeValidator
                 .builder()
                 .allowIfBaseType(Object.class)
@@ -82,6 +96,8 @@ public class CacheConfig {
                         RedisCacheWriter.nonLockingRedisCacheWriter(connectionFactory)
                 )
                 .cacheDefaults(defaults)
+                .withCacheConfiguration(CacheId.FRAUD_EVALUATION.getCacheName(),
+                        defaults.entryTtl(Duration.ofMinutes(5)))
                 .withCacheConfiguration(CacheId.ACCOUNT.getCacheName(),
                         defaults.entryTtl(Duration.ofMinutes(10)))
                 .withCacheConfiguration(CacheId.ACCOUNT_BY_NUMBER.getCacheName(),
@@ -125,5 +141,15 @@ public class CacheConfig {
                 .withCacheConfiguration(CacheId.PERMISSIONS.getCacheName(),
                         defaults.entryTtl(Duration.ZERO))
                 .build();
+    }
+
+    @Bean
+    @Primary
+    public CacheManager cacheManager(RedisConnectionFactory connectionFactory, ObjectMapper objectMapper) {
+       return new TieredCacheManager(
+                caffeineCacheManager(),
+                redisCacheManager(connectionFactory, objectMapper),
+                CacheId.FRAUD_EVALUATION.getCacheName()   // only fraud-eval gets L1+L2, everything else → Redis only
+        );
     }
 }

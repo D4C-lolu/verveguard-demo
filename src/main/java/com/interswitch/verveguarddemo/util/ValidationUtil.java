@@ -1,16 +1,22 @@
 package com.interswitch.verveguarddemo.util;
 
+import com.interswitch.verveguarddemo.exceptions.BadRequestException;
 import com.interswitch.verveguarddemo.exceptions.ConflictException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 public class ValidationUtil {
-    public static void checkConflicts(List<Map<String, Object>> results, String email, String phone) {
-        for (Map<String, Object> res : results) {
-            if (Boolean.TRUE.equals(res.get("email")) && Boolean.TRUE.equals(res.get("phone"))) throw new ConflictException("Email or phone already exists");
-            if (Boolean.TRUE.equals(res.get("emailExists"))) throw new ConflictException("Email already in use");
-            if (Boolean.TRUE.equals(res.get("phoneExists"))) throw new ConflictException("Phone already in use");
+
+    public static void checkConflicts(List<Map<String, Object>> results) {
+        for (Map<String, Object> row : results) {
+            if (Boolean.TRUE.equals(row.get("invalid_role"))) throw new BadRequestException("Invalid role for merchant");
+
+            List<String> conflicts = new ArrayList<>();
+            if (Boolean.TRUE.equals(row.get("email_exists"))) conflicts.add("Email already in use");
+            if (Boolean.TRUE.equals(row.get("phone_exists"))) conflicts.add("Phone already in use");
+            if (!conflicts.isEmpty()) throw new ConflictException(String.join(", ", conflicts));
         }
     }
 }

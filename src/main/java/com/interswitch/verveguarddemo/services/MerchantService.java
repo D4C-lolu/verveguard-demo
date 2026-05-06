@@ -1,5 +1,6 @@
 package com.interswitch.verveguarddemo.services;
 
+import com.interswitch.verveguarddemo.dao.BlacklistDao;
 import com.interswitch.verveguarddemo.entities.Merchant;
 import com.interswitch.verveguarddemo.entities.Role;
 import com.interswitch.verveguarddemo.exceptions.BadRequestException;
@@ -25,18 +26,20 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+
 @Service
 @RequiredArgsConstructor
 public class MerchantService {
 
     private final MerchantRepository merchantRepository;
     private final PasswordEncoder passwordEncoder;
+    private final BlacklistDao  blacklistDao;
 
     @Transactional
     @CacheEvict(value = "merchants-page", allEntries = true)
     public MerchantResponse createMerchant(CreateMerchantRequest request) {
-        List<Map<String, Object>> conflicts = merchantRepository.validateForCreate(request.email(), request.phone());
-        ValidationUtil.checkConflicts(conflicts, request.email(), request.phone());
+        List<Map<String, Object>> conflicts = merchantRepository.validateForCreate(request.email(), request.phone(), request.roleId());
+        ValidationUtil.checkConflicts(conflicts);
 
         Long currentUserId = SecurityUtil.findCurrentUserId().orElse(null);
 
@@ -57,7 +60,20 @@ public class MerchantService {
         merchant.setCreatedBy(currentUserId);
         merchantRepository.save(merchant);
 
-        return getMerchantById(merchant.getId());
+        return MerchantResponse.builder()
+                .id(merchant.getId())
+                .firstname(merchant.getFirstname())
+                .lastname(merchant.getLastname())
+                .othername(merchant.getOthername())
+                .email(merchant.getEmail())
+                .phone(merchant.getPhone())
+                .address(merchant.getAddress())
+                .kycStatus(merchant.getKycStatus())
+                .merchantStatus(merchant.getMerchantStatus())
+                .tier(merchant.getTier())
+                .createdAt(merchant.getCreatedAt())
+                .updatedAt(merchant.getUpdatedAt())
+                .build();
     }
 
     @Cacheable(value = "merchants", key = "#id")
@@ -93,6 +109,43 @@ public class MerchantService {
     })
     public void updateKycStatus(Long id, KycStatus kycStatus) {
         merchantRepository.updateKycStatus(id, kycStatus, SecurityUtil.getCurrentUserId());
+    }
+
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "merchants", key = "#id"),
+            @CacheEvict(value = "merchants-page", allEntries = true)
+    })
+    public void blacklistMerchant(Long id, String reason) {
+        blacklistDao.blacklistMerchant(id, reason, SecurityUtil.getCurrentUserId());
+    }
+
+
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "merchants", key = "#id"),
+            @CacheEvict(value = "merchants-page", allEntries = true)
+    })
+    public void updateMerchantStatus(Long id, MerchantStatus merchantStatus) {
+        merchantRepository.updateMerchantStatus(id, merchantStatus, SecurityUtil.getCurrentUserId());
+    }
+
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "merchants", key = "#id"),
+            @CacheEvict(value = "merchants-page", allEntries = true)
+    })
+    public void updateMerchantStatusAndKycStatus(Long id, MerchantStatus merchantStatus, KycStatus kycStatus) {
+        merchantRepository.updateMerchantStatusAndKycStatus(id, merchantStatus, kycStatus, SecurityUtil.getCurrentUserId());
+    }
+
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "merchants", key = "#id"),
+            @CacheEvict(value = "merchants-page", allEntries = true)
+    })
+    public void deleteMerchant(Long id) {
+        merchantRepository.softDelete(id, SecurityUtil.getCurrentUserId());
     }
 
     @Transactional

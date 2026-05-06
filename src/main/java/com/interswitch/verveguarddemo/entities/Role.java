@@ -1,6 +1,7 @@
 package com.interswitch.verveguarddemo.entities;
 
 import com.interswitch.verveguarddemo.entities.audit.CreatedAudit;
+import com.interswitch.verveguarddemo.models.enums.PrincipalType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.Cache;
@@ -26,6 +27,10 @@ public class Role extends CreatedAudit {
 
     @Column(nullable = false, unique = true, length = 50)
     private String name;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "principal_type", nullable = false, length = 20)
+    private PrincipalType principalType;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(

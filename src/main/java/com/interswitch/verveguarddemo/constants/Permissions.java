@@ -1,6 +1,12 @@
 package com.interswitch.verveguarddemo.constants;
 public final class Permissions {
 
+    public static final String USER_READ         = "user:read";
+    public static final String USER_CREATE       = "user:create";
+    public static final String USER_UPDATE       = "user:update";
+    public static final String USER_DELETE       = "user:delete";
+
+
     // Merchant
     public static final String MERCHANT_READ      = "merchant:read";
     public static final String MERCHANT_CREATE    = "merchant:create";
@@ -24,10 +30,6 @@ public final class Permissions {
     public static final String TRANSACTION_CREATE  = "transaction:create";
     public static final String TRANSACTION_REVERSE = "transaction:reverse";
 
-    // Transfer
-    public static final String TRANSFER_READ       = "transfer:read";
-    public static final String TRANSFER_CREATE     = "transfer:create";
-    public static final String TRANSFER_REVERSE    = "transfer:reverse";
 
     // Tier
     public static final String TIER_READ           = "tier:read";

@@ -1,6 +1,6 @@
 package com.interswitch.verveguarddemo.advice;
 
-import com.interswitch.walletapp.exceptions.*;
+import com.interswitch.verveguarddemo.exceptions.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +45,7 @@ public class ResponseBodyAdviceImpl  {
     public ResponseEntity<ApiError> handleBadRequestException(Exception e, HttpServletRequest request) {
         final var errorTraceId = UUID.randomUUID().toString();
         final var uri = request.getRequestURI();
-        log.error("An error has occurred at {} with id {}", uri, errorTraceId);
+        log.error("An error has occurred at {} with id {}", uri, errorTraceId, e);
         log.error(e.getMessage(), e);
         return ExceptionHandlerUtils.badRequest(e.getMessage(), uri, errorTraceId);
     }
@@ -91,6 +91,9 @@ public class ResponseBodyAdviceImpl  {
     @ExceptionHandler(HandlerMethodValidationException.class)
     public ResponseEntity<ApiError> handleHandlerMethodValidationException(HandlerMethodValidationException e, HttpServletRequest request) {
         final var message = ExceptionHandlerUtils.resolveHandlerValidationMessage(e);
+        final var errorTraceId = UUID.randomUUID().toString();
+        final var uri = request.getRequestURI();
+        log.error("Error at {} with id {}", uri, errorTraceId, e);
         final var apiError = new ApiError(request.getRequestURI(), message, null, BAD_REQUEST.value(), now());
         return new ResponseEntity<>(apiError, BAD_REQUEST);
     }
@@ -99,6 +102,7 @@ public class ResponseBodyAdviceImpl  {
     public ResponseEntity<ApiError> handleBadCredentialsException(BadCredentialsException e, HttpServletRequest request) {
         final var errorTraceId = UUID.randomUUID().toString();
         final var uri = request.getRequestURI();
+        log.error("Error at {} with id {}", uri, errorTraceId, e);
         final var apiError = new ApiError(uri, "Invalid email or password", errorTraceId, UNAUTHORIZED.value(), now());
         return new ResponseEntity<>(apiError, UNAUTHORIZED);
     }
@@ -107,6 +111,7 @@ public class ResponseBodyAdviceImpl  {
     public ResponseEntity<ApiError> handleAccountStatusException(Exception e, HttpServletRequest request) {
         final var errorTraceId = UUID.randomUUID().toString();
         final var uri = request.getRequestURI();
+        log.error("Error at {} with id {}", uri, errorTraceId, e);
         final var apiError = new ApiError(uri, "Account is not accessible", errorTraceId, FORBIDDEN.value(), now());
         return new ResponseEntity<>(apiError, FORBIDDEN);
     }
@@ -115,7 +120,7 @@ public class ResponseBodyAdviceImpl  {
     public ResponseEntity<ApiError> handleUnauthenticatedException(UnauthorizedException e, HttpServletRequest request) {
         final var errorTraceId = UUID.randomUUID().toString();
         final var uri = request.getRequestURI();
-        log.error("Unauthenticated access at {} with id {}", uri, errorTraceId);
+        log.error("Unauthenticated access at {} with id {}", uri, errorTraceId, e);
         final var apiError = new ApiError(uri, "Unauthorized", errorTraceId, UNAUTHORIZED.value(), now());
         return new ResponseEntity<>(apiError, UNAUTHORIZED);
     }

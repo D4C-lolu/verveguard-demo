@@ -1,12 +1,14 @@
 package com.interswitch.verveguarddemo.controllers.v1;
 
+import com.interswitch.verveguarddemo.annotation.ValidSortField;
 import com.interswitch.verveguarddemo.constants.Permissions;
+import com.interswitch.verveguarddemo.entities.User;
 import com.interswitch.verveguarddemo.models.enums.UserStatus;
 import com.interswitch.verveguarddemo.models.request.ChangePasswordRequest;
 import com.interswitch.verveguarddemo.models.request.CreateUserRequest;
-import com.interswitch.verveguarddemo.models.request.UpdateUserRequest;
 import com.interswitch.verveguarddemo.models.response.UserResponse;
 import com.interswitch.verveguarddemo.services.UserService;
+import com.interswitch.verveguarddemo.util.SecurityUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -17,7 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "User Management", description = "Endpoints for managing system users, including role assignments, status updates, and password changes")
+@Tag(name = "User Management", description = "Endpoints for managing system users, status updates, role assignments, and password changes")
 @RestController
 @RequestMapping("users")
 @RequiredArgsConstructor
@@ -26,14 +28,24 @@ public class UserController {
     private final UserService userService;
 
     @Operation(
-            summary = "Create User (Admin)",
-            description = "Register a new user account in the system. Requires USER_CREATE authority."
+            summary = "Create User",
+            description = "Register a new admin user in the system. Role must have ADMIN principal type. Requires USER_CREATE authority."
     )
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
     @PreAuthorize("hasAuthority('" + Permissions.USER_CREATE + "')")
     public UserResponse createUser(@RequestBody @Valid CreateUserRequest request) {
         return userService.createUser(request);
+    }
+
+    @Operation(
+            summary = "Get Current User",
+            description = "Returns the profile of the currently authenticated admin user derived from their JWT token."
+    )
+    @GetMapping("me")
+    @PreAuthorize("hasAuthority('" + Permissions.USER_READ + "')")
+    public UserResponse getCurrentUser() {
+        return userService.getCurrentUser();
     }
 
     @Operation(
@@ -45,57 +57,68 @@ public class UserController {
     public Page<UserResponse> getAllUsers(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "created_at") String sortField,
+            @ValidSortField(target = User.class) @RequestParam(defaultValue = "createdAt") String sortField,
             @RequestParam(defaultValue = "DESC") Sort.Direction sortDirection
     ) {
         return userService.getAllUsers(page, size, sortField, sortDirection);
     }
 
-    @Operation(summary = "Get User by ID", description = "Fetch detailed profile information for a specific user.")
+    @Operation(
+            summary = "Get User by ID",
+            description = "Fetch profile information for a specific user by their ID. Requires USER_READ authority."
+    )
     @GetMapping("{userId}")
     @PreAuthorize("hasAuthority('" + Permissions.USER_READ + "')")
     public UserResponse getUserById(@PathVariable Long userId) {
         return userService.getUserById(userId);
     }
 
-    @Operation(summary = "Update User Profile", description = "Modify user details like name or contact info. Requires USER_UPDATE authority.")
-    @PutMapping("{userId}")
-    @PreAuthorize("hasAuthority('" + Permissions.USER_UPDATE + "')")
-    public UserResponse updateUser(
-            @PathVariable Long userId,
-            @RequestBody @Valid UpdateUserRequest request
-    ) {
-        return userService.updateUser(userId, request);
-    }
-
-    @Operation(summary = "Change User Status", description = "Toggle user account status (e.g., ACTIVE, INACTIVE).")
+    @Operation(
+            summary = "Change User Status",
+            description = "Update the account status of a specific user (e.g. ACTIVE, INACTIVE). Requires USER_UPDATE authority."
+    )
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PatchMapping("{userId}/status")
     @PreAuthorize("hasAuthority('" + Permissions.USER_UPDATE + "')")
-    public UserResponse changeUserStatus(
+    public void changeUserStatus(
             @PathVariable Long userId,
             @RequestParam UserStatus status
     ) {
-        return userService.changeUserStatus(userId, status);
-    }
-
-    @Operation(summary = "Assign New Role", description = "Change a user's primary role. Requires USER_UPDATE authority.")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PatchMapping("{userId}/role")
-    @PreAuthorize("hasAuthority('" + Permissions.USER_UPDATE + "')")
-    public UserResponse changeUserRole(
-            @PathVariable Long userId,
-            @RequestParam Long roleId
-    ) {
-        return userService.changeUserRole(userId, roleId);
+        userService.changeUserStatus(userId, status);
     }
 
     @Operation(
-            summary = "Change Password",
-            description = "Update the user's login credentials. No specific authority required, but usually restricted to self or admin via service logic."
+            summary = "Change User Role",
+            description = "Assign a new role to a specific user. Role must have ADMIN principal type. Requires USER_UPDATE authority."
+    )
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PatchMapping("{userId}/role")
+    @PreAuthorize("hasAuthority('" + Permissions.USER_UPDATE + "')")
+    public void changeUserRole(
+            @PathVariable Long userId,
+            @RequestParam Long roleId
+    ) {
+        userService.changeUserRole(userId, roleId);
+    }
+
+    @Operation(
+            summary = "Change My Password",
+            description = "Allows the currently authenticated user to update their own password by verifying their current password first."
+    )
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PatchMapping("me/password")
+    @PreAuthorize("hasAuthority('" + Permissions.USER_READ + "')")
+    public void changeMyPassword(@RequestBody @Valid ChangePasswordRequest request) {
+        userService.changePassword(SecurityUtil.getCurrentUserId(), request);
+    }
+
+    @Operation(
+            summary = "Change User Password (Admin)",
+            description = "Allows an admin to reset a specific user's password. Requires USER_UPDATE authority."
     )
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PatchMapping("{userId}/password")
+    @PreAuthorize("hasAuthority('" + Permissions.USER_UPDATE + "')")
     public void changePassword(
             @PathVariable Long userId,
             @RequestBody @Valid ChangePasswordRequest request
@@ -103,7 +126,10 @@ public class UserController {
         userService.changePassword(userId, request);
     }
 
-    @Operation(summary = "Delete User", description = "Soft delete a user account from the system. Requires USER_DELETE authority.")
+    @Operation(
+            summary = "Delete User",
+            description = "Soft delete a user account from the system. Requires USER_DELETE authority."
+    )
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("{userId}")
     @PreAuthorize("hasAuthority('" + Permissions.USER_DELETE + "')")

@@ -1,11 +1,15 @@
 package com.interswitch.verveguarddemo.controllers.v1;
 
+import com.interswitch.verveguarddemo.annotation.ValidSortField;
 import com.interswitch.verveguarddemo.constants.Permissions;
+import com.interswitch.verveguarddemo.entities.Merchant;
 import com.interswitch.verveguarddemo.models.enums.KycStatus;
 import com.interswitch.verveguarddemo.models.enums.MerchantStatus;
+import com.interswitch.verveguarddemo.models.request.ChangePasswordRequest;
 import com.interswitch.verveguarddemo.models.request.CreateMerchantRequest;
 import com.interswitch.verveguarddemo.models.response.MerchantResponse;
 import com.interswitch.verveguarddemo.services.MerchantService;
+import com.interswitch.verveguarddemo.util.SecurityUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -38,10 +42,9 @@ public class MerchantController {
     public Page<MerchantResponse> getAllMerchants(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createdAt") String sort,
+            @ValidSortField(target = Merchant.class) @RequestParam(defaultValue = "createdAt") String sort,
             @RequestParam(defaultValue = "DESC") Sort.Direction dir
     ) {
-        // Pass individual params or PageRequest depending on your specific Service signature
         return merchantService.getMerchantsByStatus(null, page, size, sort, dir);
     }
 
@@ -52,7 +55,7 @@ public class MerchantController {
             @RequestParam MerchantStatus status,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createdAt") String sort,
+            @ValidSortField(target = Merchant.class) @RequestParam(defaultValue = "createdAt") String sort,
             @RequestParam(defaultValue = "DESC") Sort.Direction dir
     ) {
         return merchantService.getMerchantsByStatus(status, page, size, sort, dir);
@@ -65,10 +68,36 @@ public class MerchantController {
             @RequestParam KycStatus kycStatus,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createdAt") String sort,
+            @ValidSortField(target = Merchant.class) @RequestParam(defaultValue = "createdAt") String sort,
             @RequestParam(defaultValue = "DESC") Sort.Direction dir
     ) {
         return merchantService.getMerchantsByKycStatus(kycStatus, page, size, sort, dir);
+    }
+
+    @Operation(summary = "Get Current Merchant")
+    @GetMapping("me")
+    @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_READ + "')")
+    public MerchantResponse getCurrentMerchant() {
+        return merchantService.getMerchantById(SecurityUtil.getCurrentUserId());
+    }
+
+    @Operation(summary = "Change My Password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PatchMapping("me/password")
+    @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_READ + "')")
+    public void updateMyPassword(@RequestBody @Valid ChangePasswordRequest request) {
+        merchantService.updatePassword(SecurityUtil.getCurrentUserId(), request);
+    }
+
+    @Operation(summary = "Change Merchant Password (Admin)")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PatchMapping("{merchantId}/password")
+    @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_UPDATE + "')")
+    public void updatePassword(
+            @PathVariable Long merchantId,
+            @RequestBody @Valid ChangePasswordRequest request
+    ) {
+        merchantService.updatePassword(merchantId, request);
     }
 
     @Operation(summary = "Get Merchant by ID")
@@ -85,11 +114,10 @@ public class MerchantController {
             @PathVariable Long merchantId,
             @RequestParam MerchantStatus status
     ) {
-        // Service method is now @Modifying/void for efficiency
         merchantService.updateMerchantStatus(merchantId, status);
     }
 
-    @Operation(summary = "Update KYC Level")
+    @Operation(summary = "Update KYC Status")
     @PatchMapping("{merchantId}/kyc")
     @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_KYC + "')")
     public void updateKycStatus(
@@ -97,6 +125,28 @@ public class MerchantController {
             @RequestParam KycStatus kycStatus
     ) {
         merchantService.updateKycStatus(merchantId, kycStatus);
+    }
+
+    @Operation(summary = "Blacklist Merchant")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PostMapping("{merchantId}/blacklist")
+    @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_BLACKLIST + "')")
+    public void blacklistMerchant(
+            @PathVariable Long merchantId,
+            @RequestParam String reason
+    ) {
+        merchantService.blacklistMerchant(merchantId, reason);
+    }
+
+    @Operation(summary = "Update Account and KYC Status")
+    @PatchMapping("{merchantId}/status-kyc")
+    @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_UPDATE + "')")
+    public void updateMerchantStatusAndKycStatus(
+            @PathVariable Long merchantId,
+            @RequestParam MerchantStatus status,
+            @RequestParam KycStatus kycStatus
+    ) {
+        merchantService.updateMerchantStatusAndKycStatus(merchantId, status, kycStatus);
     }
 
     @Operation(summary = "Upgrade Tier")
