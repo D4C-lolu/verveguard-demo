@@ -66,8 +66,8 @@ public class ExceptionHandlerUtils {
         String value = e.getValue() != null ? e.getValue().toString() : "null";
         Class<?> type = e.getTargetType();
 
-        if (type.isEnum())                return invalidEnum(field, value, type);
-        if (type == LocalDate.class)      return invalidDate(field, value);
+        if (type.isEnum()) return invalidEnum(field, value, type);
+        if (type == LocalDate.class) return invalidDate(field, value);
         if (type == OffsetDateTime.class) return invalidDateTime(field, value);
 
         return String.format("Invalid value for field '%s'", field);

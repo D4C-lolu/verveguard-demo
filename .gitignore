@@ -34,3 +34,4 @@ build/
 
 lib/
 .env
+ignore-me/

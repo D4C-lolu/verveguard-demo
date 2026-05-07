@@ -20,7 +20,7 @@ import java.util.Objects;
 @Entity
 @Table(name = "roles")
 public class Role extends CreatedAudit {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

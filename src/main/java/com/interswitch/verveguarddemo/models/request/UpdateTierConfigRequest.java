@@ -9,4 +9,5 @@ public record UpdateTierConfigRequest(
         @NotNull @Positive BigDecimal dailyTransactionLimit,
         @NotNull @Positive BigDecimal singleTransactionLimit,
         @NotNull @Positive BigDecimal monthlyTransactionLimit
-) {}
+) {
+}

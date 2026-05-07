@@ -71,10 +71,10 @@ public class CardController {
     @GetMapping
     @PreAuthorize("hasRole('" + Roles.ADMIN + "') or hasRole('" + Roles.SUPER_ADMIN + "')")
     public Page<CardResponse> getAllCards(
-            @RequestParam(defaultValue = "1")          int page,
-            @RequestParam(defaultValue = "10")         int size,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "created_at") String sortField,
-            @RequestParam(defaultValue = "DESC")       Sort.Direction sortDirection
+            @RequestParam(defaultValue = "DESC") Sort.Direction sortDirection
     ) {
         return cardService.getAllCards(page, size, sortField, sortDirection);
     }

@@ -22,7 +22,7 @@ public class FraudAttemptLoggerService {
 
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void logAttempt(String cardHash, FraudEvaluationContext ctx,FraudStatus status, List<String> flags) {
+    public void logAttempt(String cardHash, FraudEvaluationContext ctx, FraudStatus status, List<String> flags) {
         try {
             fraudDao.insertFraudAttempt(new FraudAttemptRecord(
                     cardHash,

@@ -4,4 +4,5 @@ public record CardValidationResult(
         String kycStatus,
         boolean cardHashExists,
         boolean alreadyHasCard
-) {}
+) {
+}

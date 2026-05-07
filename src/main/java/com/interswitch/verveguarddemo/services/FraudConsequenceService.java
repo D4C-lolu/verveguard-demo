@@ -7,7 +7,6 @@ import com.interswitch.verveguarddemo.models.projections.MerchantAlertInfo;
 import com.interswitch.verveguarddemo.repositories.MerchantRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,7 +20,6 @@ public class FraudConsequenceService {
     private final BlacklistDao blacklistDao;
     private final MerchantRepository merchantRepository;
 
-    @Async
     @Transactional
     public void applyConsequences(FraudEvaluationContext ctx, String cardHash, FraudStatus status, List<String> flags) {
         if (status == FraudStatus.BLOCKED) {
@@ -65,16 +63,16 @@ public class FraudConsequenceService {
             }
 
             log.info("""
-                    [FRAUD ALERT - SIMULATED EMAIL]
-                    To      : {} <{}>
-                    Subject : {}
-                    Status  : {}
-                    Amount  : {} {}
-                    IP      : {}
-                    Time    : {}
-                    Flags   : {}
-                    Card    : {}
-                    """,
+                            [FRAUD ALERT - SIMULATED EMAIL]
+                            To      : {} <{}>
+                            Subject : {}
+                            Status  : {}
+                            Amount  : {} {}
+                            IP      : {}
+                            Time    : {}
+                            Flags   : {}
+                            Card    : {}
+                            """,
                     info.getFullname(), info.getEmail(),
                     status == FraudStatus.BLOCKED
                             ? "[URGENT] Transaction Blocked - Fraud Alert"

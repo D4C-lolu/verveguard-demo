@@ -12,5 +12,6 @@ public record CreateUserRequest(
         @NotBlank String phone,
         @NotBlank String password,
         @NotNull Long roleId
-) {}
+) {
+}
 

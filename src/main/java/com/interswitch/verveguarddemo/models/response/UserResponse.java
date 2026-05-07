@@ -17,5 +17,6 @@ public record UserResponse(
         UserStatus userStatus,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
-) {}
+) {
+}
 

@@ -6,6 +6,7 @@ import com.interswitch.verveguard.api.model.FraudContext;
 import com.interswitch.verveguard.api.model.FraudResult;
 import com.interswitch.verveguard.api.model.GateResult;
 import com.interswitch.verveguarddemo.context.PrefetchedFraudDataProvider;
+import com.interswitch.verveguarddemo.context.VelocityCounter;
 import com.interswitch.verveguarddemo.dao.FraudDao;
 import com.interswitch.verveguarddemo.models.enums.FraudStatus;
 import com.interswitch.verveguarddemo.models.projections.FraudEvaluationContext;
@@ -35,6 +36,7 @@ public class FraudDetectionService {
     private final FraudEvaluator fraudEvaluator;
     private final PrefetchedFraudDataProvider fraudDataProvider;
     private final UserIpHistoryService userIpHistoryService;
+    private final VelocityCounter velocityCounter;
 
     /**
      * Called from merchant-facing endpoints — merchantId from security context.
@@ -89,6 +91,7 @@ public class FraudDetectionService {
 
         FraudContext fraudContext = FraudContext.builder()
                 .transactionId(ctx.transactionId())
+                .accountIdentifier(cardHash)
                 .cardHash(cardHash)
                 .ipAddress(ctx.ipAddress())
                 .amount(ctx.amount())
@@ -102,6 +105,7 @@ public class FraudDetectionService {
 
     private void handlePostEvaluationActions(FraudEvaluationContext ctx, String cardHash,
                                              FraudStatus status, List<String> flags) {
+        velocityCounter.record(cardHash, ctx.transactionId());
         userIpHistoryService.recordIpAsync(String.valueOf(ctx.merchantId()), ctx.ipAddress());
         fraudLogger.logAttempt(cardHash, ctx, status, flags);
 
@@ -121,9 +125,9 @@ public class FraudDetectionService {
 
     private FraudStatus mapDecision(FraudDecision decision) {
         return switch (decision) {
-            case ALLOW  -> FraudStatus.CLEAN;
+            case ALLOW -> FraudStatus.CLEAN;
             case REVIEW -> FraudStatus.SUSPICIOUS;
-            case BLOCK  -> FraudStatus.BLOCKED;
+            case BLOCK -> FraudStatus.BLOCKED;
         };
     }
 

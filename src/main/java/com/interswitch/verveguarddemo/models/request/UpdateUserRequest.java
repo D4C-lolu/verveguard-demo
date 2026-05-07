@@ -9,4 +9,5 @@ public record UpdateUserRequest(
         String othername,
         @NotBlank String phone,
         @NotBlank @NotEmpty String email
-) {}
+) {
+}

@@ -16,9 +16,8 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class AuthController {
 
-    private final AuthService authService;
-
     private static final String refreshTokenHeader = "Refresh-Token";
+    private final AuthService authService;
 
     @Operation(
             summary = "Login",

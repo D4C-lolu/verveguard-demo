@@ -1,5 +1,6 @@
 -- Single combined evaluation call — blacklist + transaction limit in one query
-CREATE OR REPLACE FUNCTION sp_fraud_get_evaluation_data(
+CREATE
+OR REPLACE FUNCTION sp_fraud_get_evaluation_data(
     p_card_hash text
 ) RETURNS TABLE (
     is_card_blocked   boolean,
@@ -9,26 +10,23 @@ CREATE OR REPLACE FUNCTION sp_fraud_get_evaluation_data(
 ) LANGUAGE plpgsql AS $$
 BEGIN
 RETURN QUERY
-SELECT
-    (c.card_status = 'BLOCKED')                     AS is_card_blocked,
-    EXISTS (
-        SELECT 1
-        FROM merchant_blacklist mb
-        WHERE mb.merchant_id = c.merchant_id
-          AND mb.lifted_at IS NULL
-    )                                               AS is_merchant_blacklisted,
-    tc.single_transaction_limit                     AS transaction_limit,
-    c.merchant_id                                   AS merchant_id
+SELECT (c.card_status = 'BLOCKED')         AS is_card_blocked,
+       EXISTS (SELECT 1
+               FROM merchant_blacklist mb
+               WHERE mb.merchant_id = c.merchant_id
+                 AND mb.lifted_at IS NULL) AS is_merchant_blacklisted,
+       tc.single_transaction_limit         AS transaction_limit,
+       c.merchant_id                       AS merchant_id
 FROM cards c
-         JOIN merchants    m  ON m.id   = c.merchant_id
+         JOIN merchants m ON m.id = c.merchant_id
          JOIN tier_configs tc ON tc.tier = m.tier
-WHERE c.card_hash = p_card_hash
-    LIMIT 1;
+WHERE c.card_hash = p_card_hash LIMIT 1;
 END;
 $$;
 
 -- Insert fraud attempt
-CREATE OR REPLACE FUNCTION sp_fraud_insert_attempt(
+CREATE
+OR REPLACE FUNCTION sp_fraud_insert_attempt(
     p_card_hash   text,
     p_merchant_id bigint,
     p_ip_address  text,
@@ -44,51 +42,55 @@ END;
 $$;
 
 -- Velocity count (card_hash direct, for when snapshot is unavailable)
-CREATE OR REPLACE FUNCTION sp_fraud_get_card_velocity_count(
+CREATE
+OR REPLACE FUNCTION sp_fraud_get_card_velocity_count(
     p_card_hash text,
     p_since     timestamptz
 ) RETURNS int LANGUAGE plpgsql AS $$
 DECLARE
 v_count int;
 BEGIN
-SELECT COUNT(*)::int INTO v_count
+SELECT COUNT(*) ::int
+INTO v_count
 FROM fraud_attempts
-WHERE card_hash  = p_card_hash
+WHERE card_hash = p_card_hash
   AND created_at >= p_since;
 RETURN v_count;
 END;
 $$;
 
 -- Blacklist check fallback by card number
-CREATE OR REPLACE FUNCTION sp_fraud_is_blacklisted_by_card_number(p_card_number text)
+CREATE
+OR REPLACE FUNCTION sp_fraud_is_blacklisted_by_card_number(p_card_number text)
 RETURNS boolean LANGUAGE plpgsql AS $$
 BEGIN
-RETURN EXISTS (
-    SELECT 1
-    FROM cards c
-             JOIN merchant_blacklist mb ON mb.merchant_id = c.merchant_id
-    WHERE c.card_hash  = encode(digest(p_card_number, 'sha256'), 'hex')
-      AND mb.lifted_at IS NULL
-);
+RETURN EXISTS (SELECT 1
+               FROM cards c
+                        JOIN merchant_blacklist mb ON mb.merchant_id = c.merchant_id
+               WHERE c.card_hash = encode(digest(p_card_number, 'sha256'), 'hex')
+                 AND mb.lifted_at IS NULL);
 END;
 $$;
 
 -- Transaction limit fallback by card number
-CREATE OR REPLACE FUNCTION sp_fraud_get_transaction_limit_by_card_number(p_card_number text)
+CREATE
+OR REPLACE FUNCTION sp_fraud_get_transaction_limit_by_card_number(p_card_number text)
 RETURNS numeric LANGUAGE plpgsql AS $$
 DECLARE
 v_limit numeric;
 BEGIN
-SELECT tc.single_transaction_limit INTO v_limit
+SELECT tc.single_transaction_limit
+INTO v_limit
 FROM cards c
-         JOIN merchants    m  ON m.id   = c.merchant_id
+         JOIN merchants m ON m.id = c.merchant_id
          JOIN tier_configs tc ON tc.tier = m.tier
 WHERE c.card_hash = encode(digest(p_card_number, 'sha256'), 'hex');
 RETURN v_limit;
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION sp_fraud_get_attempts(
+CREATE
+OR REPLACE FUNCTION sp_fraud_get_attempts(
     p_limit  int,
     p_offset bigint
 ) RETURNS TABLE (
@@ -127,7 +129,7 @@ SELECT fa.id,
        COUNT(*) OVER () AS total_count
 FROM fraud_attempts fa
          JOIN merchants m ON m.id = fa.merchant_id
-ORDER BY fa.created_at DESC
-    LIMIT p_limit OFFSET p_offset;
+ORDER BY fa.created_at DESC LIMIT p_limit
+OFFSET p_offset;
 END;
 $$;

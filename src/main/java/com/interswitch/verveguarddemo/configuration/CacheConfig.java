@@ -1,6 +1,5 @@
 package com.interswitch.verveguarddemo.configuration;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.interswitch.verveguarddemo.cache.TieredCacheManager;
@@ -19,14 +18,10 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
-import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
-import tools.jackson.databind.jsontype.PolymorphicTypeValidator;
 
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
-
-import static tools.jackson.databind.DefaultTyping.NON_FINAL_AND_ENUMS;
 
 @Configuration
 @EnableCaching
@@ -54,23 +49,16 @@ public class CacheConfig {
     }
 
     @Bean
-    public RedisCacheManager redisCacheManager(RedisConnectionFactory connectionFactory, ObjectMapper objectMapper) {
-        PolymorphicTypeValidator typeValidator = BasicPolymorphicTypeValidator
-                .builder()
-                .allowIfBaseType(Object.class)
-                .build();
+    public RedisCacheManager redisCacheManager(RedisConnectionFactory connectionFactory) {
 
-        ObjectMapper cacheMapper = objectMapper
-                .rebuild()
-                .activateDefaultTyping(
-                        typeValidator,
-                        NON_FINAL_AND_ENUMS,
-                        JsonTypeInfo.As.PROPERTY
+        GenericJacksonJsonRedisSerializer serializer = GenericJacksonJsonRedisSerializer
+                .builder()
+                .enableDefaultTyping(
+                        BasicPolymorphicTypeValidator.builder()
+                                .allowIfSubType(Object.class)
+                                .build()
                 )
                 .build();
-
-        GenericJacksonJsonRedisSerializer jsonSerializer =
-                new GenericJacksonJsonRedisSerializer(cacheMapper);
 
         RedisCacheConfiguration defaults = RedisCacheConfiguration
                 .defaultCacheConfig()
@@ -79,22 +67,14 @@ public class CacheConfig {
                                 .fromSerializer(new StringRedisSerializer())
                 )
                 .serializeValuesWith(
-                        // Values are stored as JSON with embedded type hints.
                         RedisSerializationContext.SerializationPair
-                                .fromSerializer(jsonSerializer)
+                                .fromSerializer(serializer)
                 )
                 .disableCachingNullValues()
                 .prefixCacheNameWith("");
 
         return RedisCacheManager
-                .builder(
-                        // nonLockingRedisCacheWriter: no distributed lock on cache writes.
-                        // Faster throughput. Acceptable for typical cache-aside patterns
-                        // where a brief thundering herd on a cold key is tolerable.
-                        // Use RedisCacheWriter.lockingRedisCacheWriter(connectionFactory)
-                        // if you need strict putIfAbsent guarantees.
-                        RedisCacheWriter.nonLockingRedisCacheWriter(connectionFactory)
-                )
+                .builder(RedisCacheWriter.nonLockingRedisCacheWriter(connectionFactory))
                 .cacheDefaults(defaults)
                 .withCacheConfiguration(CacheId.FRAUD_EVALUATION.getCacheName(),
                         defaults.entryTtl(Duration.ofMinutes(5)))
@@ -145,10 +125,10 @@ public class CacheConfig {
 
     @Bean
     @Primary
-    public CacheManager cacheManager(RedisConnectionFactory connectionFactory, ObjectMapper objectMapper) {
-       return new TieredCacheManager(
+    public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+        return new TieredCacheManager(
                 caffeineCacheManager(),
-                redisCacheManager(connectionFactory, objectMapper),
+                redisCacheManager(connectionFactory),
                 CacheId.FRAUD_EVALUATION.getCacheName()   // only fraud-eval gets L1+L2, everything else → Redis only
         );
     }

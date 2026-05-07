@@ -21,9 +21,9 @@ public interface RolePermissionRepository extends JpaRepository<RolePermission, 
     List<RolePermission> findByRoleId(Long roleId);
 
     @Query("""
-        SELECT rp.id.permissionId
-        FROM RolePermission rp
-        WHERE rp.id.roleId = :roleId
-    """)
+                SELECT rp.id.permissionId
+                FROM RolePermission rp
+                WHERE rp.id.roleId = :roleId
+            """)
     Set<Long> findPermissionIdsByRoleId(Long roleId);
 }

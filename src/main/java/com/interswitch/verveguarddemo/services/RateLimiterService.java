@@ -13,18 +13,16 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class RateLimiterService {
 
-    private final Cache<String, Bucket> buckets;
-
     //TODO: make configurable
     private static final int MAX_REQUESTS = 5;
     private static final int WINDOW_MINUTES = 1;
-
     private static final Set<String> BYPASS_IPS = Set.of(
             "127.0.0.1",
             "0:0:0:0:0:0:0:1",
             "::1",
             "localhost"
     );
+    private final Cache<String, Bucket> buckets;
 
     public RateLimiterService() {
         this.buckets = Caffeine.newBuilder()

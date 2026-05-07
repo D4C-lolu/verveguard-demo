@@ -1,6 +1,5 @@
 package com.interswitch.verveguarddemo.controllers.v1;
 
-import com.interswitch.verveguarddemo.constants.Permissions;
 import com.interswitch.verveguarddemo.constants.Roles;
 import com.interswitch.verveguarddemo.models.response.AccountResponse;
 import com.interswitch.verveguarddemo.services.AccountService;
@@ -25,7 +24,7 @@ public class AccountController {
             description = "Returns the authenticated merchant's account. Requires ACCOUNT_READ authority."
     )
     @GetMapping("me")
-    @PreAuthorize("hasAuthority('" + Permissions.ACCOUNT_READ + "')")
+    @PreAuthorize("hasRole('" + Roles.MERCHANT + "')")
     public AccountResponse getMyAccount() {
         return accountService.getMyAccount();
     }
@@ -47,10 +46,10 @@ public class AccountController {
     @GetMapping
     @PreAuthorize("hasRole('" + Roles.ADMIN + "') or hasRole('" + Roles.SUPER_ADMIN + "')")
     public Page<AccountResponse> getAllAccounts(
-            @RequestParam(defaultValue = "1")          int page,
-            @RequestParam(defaultValue = "10")         int size,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "created_at") String sortField,
-            @RequestParam(defaultValue = "DESC")       Sort.Direction sortDirection
+            @RequestParam(defaultValue = "DESC") Sort.Direction sortDirection
     ) {
         return accountService.getAllAccounts(page, size, sortField, sortDirection);
     }

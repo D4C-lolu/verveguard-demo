@@ -18,12 +18,11 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class AccountService {
 
-    private final AccountDao accountDao;
-
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
             "id", "account_number", "account_type", "currency",
             "balance", "created_at"
     );
+    private final AccountDao accountDao;
 
     @Cacheable(value = "account", key = "'merchant:' + #merchantId")
     public AccountResponse getMyAccount() {

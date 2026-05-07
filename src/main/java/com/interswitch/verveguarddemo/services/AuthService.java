@@ -2,10 +2,10 @@ package com.interswitch.verveguarddemo.services;
 
 import com.interswitch.verveguarddemo.models.request.LoginRequest;
 import com.interswitch.verveguarddemo.models.response.AuthResponse;
-import com.interswitch.verveguarddemo.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -23,7 +23,7 @@ public class AuthService {
                 )
         );
 
-        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        UserDetails principal = (UserDetails) authentication.getPrincipal();
         return tokenService.issueTokens(principal);
     }
 

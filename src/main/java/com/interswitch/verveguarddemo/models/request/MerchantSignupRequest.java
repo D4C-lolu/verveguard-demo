@@ -11,5 +11,6 @@ public record MerchantSignupRequest(
         @NotBlank String phone,
         @NotBlank String password,
         String address
-) {}
+) {
+}
 

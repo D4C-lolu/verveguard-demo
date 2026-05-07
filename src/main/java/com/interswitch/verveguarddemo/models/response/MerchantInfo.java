@@ -6,4 +6,5 @@ public record MerchantInfo(
         String othername,
         String email,
         String phone
-) {}
+) {
+}

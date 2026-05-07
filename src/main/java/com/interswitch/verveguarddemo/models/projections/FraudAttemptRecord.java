@@ -13,4 +13,5 @@ public record FraudAttemptRecord(
         String currency,
         FraudStatus status,
         List<String> flags
-) {}
+) {
+}

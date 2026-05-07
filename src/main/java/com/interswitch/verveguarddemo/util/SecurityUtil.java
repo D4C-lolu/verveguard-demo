@@ -3,6 +3,7 @@ package com.interswitch.verveguarddemo.util;
 import com.interswitch.verveguarddemo.exceptions.BadRequestException;
 import com.interswitch.verveguarddemo.exceptions.UnauthorizedException;
 import com.interswitch.verveguarddemo.security.JwtUserPrincipal;
+import com.interswitch.verveguarddemo.security.MerchantPrincipal;
 import com.interswitch.verveguarddemo.security.UserPrincipal;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -27,6 +28,10 @@ public class SecurityUtil {
 
         if (principal instanceof UserPrincipal userPrincipal) {
             return Optional.of(userPrincipal.getId());
+        }
+
+        if (principal instanceof MerchantPrincipal merchantPrincipal) {
+            return Optional.of(merchantPrincipal.getId());
         }
 
         return Optional.empty();

@@ -38,19 +38,22 @@ public class AccountDao {
     }
 
     public void createForCard(Long cardId) {
-        namedJdbc.update(
+        namedJdbc.query(
                 "SELECT sp_account_create_for_card(:cardId)",
-                new MapSqlParameterSource("cardId", cardId));
+                new MapSqlParameterSource("cardId", cardId),
+                (_) -> {
+                }
+        );
     }
 
     public Page<AccountResponse> findAll(int page, int size, String sortField, String sortDir) {
         long[] total = {0};
 
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("limit",     size)
-                .addValue("offset",    (long) (page - 1) * size)
+                .addValue("limit", size)
+                .addValue("offset", (long) (page - 1) * size)
                 .addValue("sortField", sortField)
-                .addValue("sortDir",   sortDir);
+                .addValue("sortDir", sortDir);
 
         List<AccountResponse> content = namedJdbc.query(
                 "SELECT * FROM sp_account_find_all(:limit, :offset, :sortField, :sortDir)",

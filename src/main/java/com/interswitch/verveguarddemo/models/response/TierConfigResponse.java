@@ -12,4 +12,5 @@ public record TierConfigResponse(
         BigDecimal monthlyTransactionLimit,
         Integer maxCards,
         Integer maxAccounts
-) {}
+) {
+}

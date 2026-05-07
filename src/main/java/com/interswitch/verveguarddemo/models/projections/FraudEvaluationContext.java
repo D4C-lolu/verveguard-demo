@@ -11,5 +11,6 @@ public record FraudEvaluationContext(
         String cardNumber,
         String ipAddress,
         OffsetDateTime transactionTime
-) {}
+) {
+}
 

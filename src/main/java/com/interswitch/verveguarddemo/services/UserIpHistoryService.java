@@ -16,11 +16,10 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class UserIpHistoryService {
 
-    private final StringRedisTemplate redisTemplate;
-
     private static final String KEY_PREFIX = "fraud:ip:";
     private static final int MAX_IPS = 10;
     private static final Duration TTL = Duration.ofDays(30);
+    private final StringRedisTemplate redisTemplate;
 
     public Set<String> getRecentIps(String merchantId) {
         if (merchantId == null) {

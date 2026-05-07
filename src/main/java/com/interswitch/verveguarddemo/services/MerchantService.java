@@ -8,7 +8,8 @@ import com.interswitch.verveguarddemo.exceptions.NotFoundException;
 import com.interswitch.verveguarddemo.models.enums.KycStatus;
 import com.interswitch.verveguarddemo.models.enums.MerchantStatus;
 import com.interswitch.verveguarddemo.models.enums.MerchantTier;
-import com.interswitch.verveguarddemo.models.request.*;
+import com.interswitch.verveguarddemo.models.request.ChangePasswordRequest;
+import com.interswitch.verveguarddemo.models.request.CreateMerchantRequest;
 import com.interswitch.verveguarddemo.models.response.MerchantResponse;
 import com.interswitch.verveguarddemo.repositories.MerchantRepository;
 import com.interswitch.verveguarddemo.util.SecurityUtil;
@@ -33,7 +34,7 @@ public class MerchantService {
 
     private final MerchantRepository merchantRepository;
     private final PasswordEncoder passwordEncoder;
-    private final BlacklistDao  blacklistDao;
+    private final BlacklistDao blacklistDao;
 
     @Transactional
     @CacheEvict(value = "merchants-page", allEntries = true)
@@ -155,7 +156,7 @@ public class MerchantService {
     })
     public void upgradeTier(Long id) {
         MerchantTier existingTier = merchantRepository.findMerchantTierById(id)
-                .orElseThrow(()-> new NotFoundException("Merchant not found"));
+                .orElseThrow(() -> new NotFoundException("Merchant not found"));
         MerchantTier nextTier = switch (existingTier) {
             case TIER_1 -> MerchantTier.TIER_2;
             case TIER_2 -> MerchantTier.TIER_3;

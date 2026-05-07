@@ -14,4 +14,5 @@ public record CreateMyCardRequest(
         @NotNull CardScheme scheme,
         @NotNull @Min(1) @Max(12) int expiryMonth,
         @NotNull @Min(2025) int expiryYear
-) {}
+) {
+}

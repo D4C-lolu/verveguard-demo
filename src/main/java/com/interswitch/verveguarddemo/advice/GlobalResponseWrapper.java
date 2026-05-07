@@ -30,6 +30,6 @@ public class GlobalResponseWrapper implements ResponseBodyAdvice<Object> {
                 || MediaType.APPLICATION_PDF.equals(selectedContentType)) {
             return body;
         }
-        return new ApiSuccess("success" ,body);
+        return new ApiSuccess("success", body);
     }
 }

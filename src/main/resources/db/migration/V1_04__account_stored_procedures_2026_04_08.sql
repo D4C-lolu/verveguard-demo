@@ -1,5 +1,6 @@
 -- Merchant: find their own account via merchant_id
-CREATE OR REPLACE FUNCTION sp_account_find_by_merchant(p_merchant_id bigint)
+CREATE
+OR REPLACE FUNCTION sp_account_find_by_merchant(p_merchant_id bigint)
 RETURNS TABLE (
     id             bigint,
     merchant_id    bigint,
@@ -11,8 +12,13 @@ RETURNS TABLE (
 ) LANGUAGE plpgsql AS $$
 BEGIN
 RETURN QUERY
-SELECT a.id, c.merchant_id, a.account_number, a.account_type,
-       a.currency, a.balance, a.created_at
+SELECT a.id,
+       c.merchant_id,
+       a.account_number,
+       a.account_type,
+       a.currency,
+       a.balance,
+       a.created_at
 FROM accounts a
          JOIN cards c ON c.id = a.card_id
 WHERE c.merchant_id = p_merchant_id;
@@ -20,7 +26,8 @@ END;
 $$;
 
 -- Admin: find account by card_number via pgcrypto hash
-CREATE OR REPLACE FUNCTION sp_account_find_by_card_number(p_card_number text)
+CREATE
+OR REPLACE FUNCTION sp_account_find_by_card_number(p_card_number text)
 RETURNS TABLE (
     id             bigint,
     merchant_id    bigint,
@@ -32,8 +39,13 @@ RETURNS TABLE (
 ) LANGUAGE plpgsql AS $$
 BEGIN
 RETURN QUERY
-SELECT a.id, c.merchant_id, a.account_number, a.account_type,
-       a.currency, a.balance, a.created_at
+SELECT a.id,
+       c.merchant_id,
+       a.account_number,
+       a.account_type,
+       a.currency,
+       a.balance,
+       a.created_at
 FROM accounts a
          JOIN cards c ON c.id = a.card_id
 WHERE c.card_hash = encode(digest(p_card_number, 'sha256'), 'hex');
@@ -41,7 +53,8 @@ END;
 $$;
 
 -- Admin: find all accounts, paginated
-CREATE OR REPLACE FUNCTION sp_account_find_all(
+CREATE
+OR REPLACE FUNCTION sp_account_find_all(
     p_limit      int,
     p_offset     bigint,
     p_sort_field character varying,

@@ -6,4 +6,5 @@ public record RoleResponse(
         Long id,
         String name,
         List<PermissionResponse> permissions
-) {}
+) {
+}

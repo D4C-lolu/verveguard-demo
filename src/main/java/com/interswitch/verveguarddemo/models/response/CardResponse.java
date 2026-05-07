@@ -22,4 +22,5 @@ public record CardResponse(
         BigDecimal balance,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
-) {}
+) {
+}

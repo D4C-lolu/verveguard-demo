@@ -16,4 +16,5 @@ public record FraudEvaluationRequest(
         @NotBlank
         @Pattern(regexp = "\\d{13,19}", message = "Invalid card number format")
         String cardNumber
-) {}
+) {
+}

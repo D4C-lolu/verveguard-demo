@@ -26,20 +26,19 @@ public class CardDao {
     private final NamedParameterJdbcTemplate namedJdbc;
 
     public Long insert(Long merchantId, String maskedCardNumber, String cardHash,
-                       CreateCardRequest request, Long createdBy) {
+                       CreateCardRequest request) {
         return namedJdbc.queryForObject(
                 "SELECT sp_card_insert(:merchantId, :cardNumber, :cardHash, :cardType, :scheme, " +
-                        ":expiryMonth::smallint, :expiryYear::smallint, :cardStatus, :createdBy)",
+                        ":expiryMonth::smallint, :expiryYear::smallint, :cardStatus)",
                 new MapSqlParameterSource()
-                        .addValue("merchantId",  merchantId)
-                        .addValue("cardNumber",  maskedCardNumber)
-                        .addValue("cardHash",    cardHash)
-                        .addValue("cardType",    request.cardType().name())
-                        .addValue("scheme",      request.scheme().name())
+                        .addValue("merchantId", merchantId)
+                        .addValue("cardNumber", maskedCardNumber)
+                        .addValue("cardHash", cardHash)
+                        .addValue("cardType", request.cardType().name())
+                        .addValue("scheme", request.scheme().name())
                         .addValue("expiryMonth", request.expiryMonth())
-                        .addValue("expiryYear",  request.expiryYear())
-                        .addValue("cardStatus",  CardStatus.ACTIVE.name())
-                        .addValue("createdBy",   createdBy),
+                        .addValue("expiryYear", request.expiryYear())
+                        .addValue("cardStatus", CardStatus.ACTIVE.name()),
                 Long.class);
     }
 
@@ -65,10 +64,10 @@ public class CardDao {
         List<CardResponse> content = namedJdbc.query(
                 "SELECT * FROM sp_card_find_all(:limit, :offset, :sortField, :sortDir)",
                 new MapSqlParameterSource()
-                        .addValue("limit",     size)
-                        .addValue("offset",    (long) (page - 1) * size)
+                        .addValue("limit", size)
+                        .addValue("offset", (long) (page - 1) * size)
                         .addValue("sortField", sortField)
-                        .addValue("sortDir",   sortDir),
+                        .addValue("sortDir", sortDir),
                 (rs, rowNum) -> {
                     if (rowNum == 0) total[0] = rs.getLong("total_count");
                     return cardRowMapper().mapRow(rs, rowNum);
@@ -82,7 +81,7 @@ public class CardDao {
                 "SELECT * FROM sp_card_get_creation_validation(:merchantId, :cardHash)",
                 new MapSqlParameterSource()
                         .addValue("merchantId", merchantId)
-                        .addValue("cardHash",   cardHash),
+                        .addValue("cardHash", cardHash),
                 (rs, _) -> new CardValidationResult(
                         rs.getString("kyc_status"),
                         rs.getBoolean("card_hash_exists"),
@@ -97,13 +96,13 @@ public class CardDao {
                 new MapSqlParameterSource("id", id),
                 Boolean.class));
     }
-
-    public void blockCard(Long id, Long updatedBy) {
-        namedJdbc.update(
-                "SELECT sp_card_block(:id, :updatedBy)",
+    public String blockCard(Long id) {
+        return namedJdbc.queryForObject(
+                "SELECT sp_card_block(:id)",
                 new MapSqlParameterSource()
-                        .addValue("id",        id)
-                        .addValue("updatedBy", updatedBy));
+                        .addValue("id", id),
+                String.class
+        );
     }
 
     public void expireDueCards() {

@@ -20,12 +20,11 @@ import java.util.Optional;
 @Component
 public class PrefetchedFraudDataProvider extends AbstractFraudDataProvider {
 
+    private static final ThreadLocal<FraudDataSnapshot> SNAPSHOT_HOLDER = new ThreadLocal<>();
     private final FraudDataService fraudDataService;
     private final RateLimiterService rateLimiterService;
     private final FraudDao fraudDao;
     private final VelocityCounter velocityCounter;
-
-    private static final ThreadLocal<FraudDataSnapshot> SNAPSHOT_HOLDER = new ThreadLocal<>();
 
     public PrefetchedFraudDataProvider(GeoIpService geoIpService,
                                        FraudDataService fraudDataService,
@@ -35,13 +34,12 @@ public class PrefetchedFraudDataProvider extends AbstractFraudDataProvider {
         super(geoIpService);
         this.fraudDataService = fraudDataService;
         this.rateLimiterService = rateLimiterService;
-        this.fraudDao           = fraudDao;
-        this.velocityCounter    = velocityCounter;
+        this.fraudDao = fraudDao;
+        this.velocityCounter = velocityCounter;
     }
 
-    public void prefetch(String cardNumber, String ipAddress) {
-        String cardHash       = DigestUtils.sha256Hex(cardNumber);   // hash once
-        StaticFraudData data  = fraudDataService.getEvaluationData(cardHash);
+    public void prefetch(String cardHash, String ipAddress) {
+        StaticFraudData data = fraudDataService.getEvaluationData(cardHash);
         boolean isRateLimited = rateLimiterService.isRateLimited(ipAddress);
 
         SNAPSHOT_HOLDER.set(new FraudDataSnapshot(
@@ -52,7 +50,9 @@ public class PrefetchedFraudDataProvider extends AbstractFraudDataProvider {
         ));
     }
 
-    public void clear()                    { SNAPSHOT_HOLDER.remove(); }
+    public void clear() {
+        SNAPSHOT_HOLDER.remove();
+    }
 
     @Override
     public boolean isBlacklisted(String cardNumber) {

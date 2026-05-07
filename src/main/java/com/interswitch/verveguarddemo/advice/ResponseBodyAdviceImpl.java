@@ -31,7 +31,7 @@ import static org.springframework.http.HttpStatus.*;
 
 @Slf4j
 @RestControllerAdvice
-public class ResponseBodyAdviceImpl  {
+public class ResponseBodyAdviceImpl {
 
     @ExceptionHandler({
             BadRequestException.class,

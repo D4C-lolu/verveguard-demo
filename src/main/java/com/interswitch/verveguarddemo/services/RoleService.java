@@ -40,6 +40,7 @@ public class RoleService {
 
         Role role = Role.builder()
                 .name(request.name())
+                .principalType(request.principalType())
                 .build();
 
         return roleMapper.map(roleRepository.save(role));

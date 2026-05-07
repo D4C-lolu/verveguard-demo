@@ -25,7 +25,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     public @NonNull UserDetails loadUserByUsername(@NonNull String email) throws UsernameNotFoundException {
         Optional<User> user = userRepository.findByEmail(email);
         if (user.isPresent()) {
-            return new AdminPrincipal(user.get());
+            return new UserPrincipal(user.get());
         }
 
         Optional<Merchant> merchant = merchantRepository.findByEmail(email);
@@ -39,7 +39,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     public UserDetails loadUserById(Long id, PrincipalType principalType) {
         return switch (principalType) {
             case ADMIN -> userRepository.findById(id)
-                    .map(AdminPrincipal::new)
+                    .map(UserPrincipal::new)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found with ID: " + id));
             case MERCHANT -> merchantRepository.findById(id)
                     .map(MerchantPrincipal::new)

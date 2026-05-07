@@ -15,21 +15,22 @@ import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
-    @Query("SELECT u FROM User u JOIN FETCH u.role r LEFT JOIN FETCH r.permissions WHERE u.email = :email")
+    @Query("SELECT u FROM User u JOIN FETCH u.role r LEFT JOIN FETCH r.permissions WHERE u.email = :email AND u.deletedAt is NULL")
     Optional<User> findByEmail(String email);
 
-    @Query("SELECT new com.interswitch.verveguarddemo.models.response.UserResponse(u.id, u.firstname, u.lastname, u.othername, u.email, u.phone, u.role.name, u.userStatus, u.createdAt, u.updatedAt) FROM User u WHERE u.id = :id")
+    @Query("SELECT new com.interswitch.verveguarddemo.models.response.UserResponse(u.id, u.firstname, u.lastname, u.othername, u.email, u.phone, u.role.name, u.userStatus, u.createdAt, u.updatedAt) FROM User u WHERE u.id = :id AND u.deletedAt is NULL")
     Optional<UserResponse> findUserById(Long id);
 
 
     @Modifying
-    @Query("UPDATE User u SET u.firstname = :firstname, u.lastname = :lastname, u.othername = :othername, u.phone = :phone, u.email = :email, u.updatedBy = :updatedBy WHERE u.id = :id")
+    @Query("UPDATE User u SET u.firstname = :firstname, u.lastname = :lastname, u.othername = :othername, u.phone = :phone, u.email = :email, u.updatedBy = :updatedBy WHERE u.id = :id AND u.deletedAt is NULL")
     void updateUser(Long id, String firstname, String lastname, String othername, String phone, String email, Long updatedBy);
 
     @Modifying
     @Query("""
                 UPDATE User u
                 SET u.updatedBy = :deletedBy,
+                    u.deletedBy = : deletedBy,
                     u.deletedAt = CURRENT_TIMESTAMP
                 WHERE u.id = :userId
             """)
@@ -44,7 +45,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
             FROM User u
             JOIN u.role r
             WHERE u.email = :email OR u.phone = :phone
-            OR r.id = :roleId
+            UNION ALL
+            SELECT
+                NULL          AS id,
+                FALSE         AS email_exists,
+                FALSE         AS phone_exists,
+                TRUE          AS invalid_role
+            WHERE NOT EXISTS (SELECT 1 FROM Role r WHERE r.id = :roleId)
             """)
     List<Map<String, Object>> validateForCreate(String email, String phone, Long roleId);
 
@@ -52,15 +59,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
     String findPasswordHashById(Long id);
 
     @Modifying
-    @Query("UPDATE User u SET u.passwordHash = :passwordHash, u.updatedBy = :updatedBy WHERE u.id = :id")
+    @Query("UPDATE User u SET u.passwordHash = :passwordHash, u.updatedBy = :updatedBy WHERE u.id = :id AND u.deletedAt is NULL")
     void updatePassword(Long id, String passwordHash, Long updatedBy);
 
     @Modifying
-    @Query("UPDATE User u SET u.userStatus = :userStatus, u.updatedBy = :updatedBy WHERE u.id = :id")
+    @Query("UPDATE User u SET u.userStatus = :userStatus, u.updatedBy = :updatedBy WHERE u.id = :id AND u.deletedAt is NULL")
     void updateStatus(Long id, UserStatus userStatus, Long updatedBy);
 
     @Modifying
-    @Query("UPDATE User u SET u.role.id = :roleId, u.updatedBy = :updatedBy WHERE u.id = :id")
+    @Query("UPDATE User u SET u.role.id = :roleId, u.updatedBy = :updatedBy WHERE u.id = :id AND u.deletedAt is NULL")
     void updateRole(Long id, Long roleId, Long updatedBy);
 
     @Query("""
@@ -76,7 +83,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
                     u.createdAt, 
                     u.updatedAt
                 ) 
-                FROM User u
+                FROM User u WHERE u.deletedAt is NULL
             """)
     Page<UserResponse> findAllUsers(Pageable pageable);
 }

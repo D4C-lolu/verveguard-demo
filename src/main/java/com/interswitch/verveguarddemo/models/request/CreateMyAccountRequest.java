@@ -8,5 +8,6 @@ import jakarta.validation.constraints.Size;
 public record CreateMyAccountRequest(
         @NotNull AccountType accountType,
         @NotBlank @Size(min = 3, max = 3) String currency
-) {}
+) {
+}
 

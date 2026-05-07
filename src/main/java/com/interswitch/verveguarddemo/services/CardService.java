@@ -29,15 +29,14 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class CardService {
 
-    private final CardDao    cardDao;
-    private final AccountDao accountDao;
-    private final FraudDataService fraudDataService;
-
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
             "id", "card_number", "card_type", "scheme",
             "expiry_month", "expiry_year", "card_status", "created_at", "updated_at",
             "account_number", "account_type", "currency", "balance"
     );
+    private final CardDao cardDao;
+    private final AccountDao accountDao;
+    private final FraudDataService fraudDataService;
 
     @Transactional
     public CardResponse createCard(CreateCardRequest request) {
@@ -59,8 +58,7 @@ public class CardService {
         validateCardExpiry(request.expiryMonth(), request.expiryYear());
 
         String maskedCardNumber = maskCardNumber(request.cardNumber());
-        Long cardId = cardDao.insert(merchantId, maskedCardNumber, cardHash, request,
-                SecurityUtil.getCurrentUserId());
+        Long cardId = cardDao.insert(merchantId, maskedCardNumber, cardHash, request);
 
         accountDao.createForCard(cardId);
 
@@ -99,8 +97,8 @@ public class CardService {
         if (card.cardStatus() == CardStatus.EXPIRED)
             throw new BadRequestException("Card is already expired");
 
-        cardDao.blockCard(card.id(), merchantId);
-        fraudDataService.evict(DigestUtils.sha256Hex(card.cardNumber()));
+        String cardHash = cardDao.blockCard(card.id());
+        fraudDataService.evict(cardHash);
     }
 
     @Scheduled(cron = "0 0 0 * * *")

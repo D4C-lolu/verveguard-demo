@@ -20,7 +20,7 @@ import java.util.Objects;
 @Entity
 @Table(name = "tier_configs")
 public class TierConfig extends MutableAudit {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

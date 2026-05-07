@@ -24,7 +24,7 @@ public interface MerchantRepository extends JpaRepository<Merchant, Long>, JpaSp
     @Query("SELECT m FROM Merchant m JOIN FETCH m.role r LEFT JOIN FETCH r.permissions WHERE m.email = :email")
     Optional<Merchant> findByEmail(String email);
 
-    @Query("SELECT new com.interswitch.verveguarddemo.models.response.MerchantResponse(m.id, m.address, m.kycStatus, m.merchantStatus, m.tier, m.firstname, m.lastname, m.othername, m.email, m.phone, m.userStatus, m.createdAt, m.updatedAt) FROM Merchant m WHERE m.id = :id")
+    @Query("SELECT new com.interswitch.verveguarddemo.models.response.MerchantResponse(m.id, m.address, m.kycStatus, m.merchantStatus, m.tier, m.firstname, m.lastname, m.othername, m.email, m.phone,  m.createdAt, m.updatedAt) FROM Merchant m WHERE m.id = :id AND m.deletedAt IS NULL")
     Optional<MerchantResponse> findMerchantById(Long id);
 
     @Query("SELECT m.tier FROM Merchant m where m.id = :merchantId")
@@ -39,40 +39,46 @@ public interface MerchantRepository extends JpaRepository<Merchant, Long>, JpaSp
             FROM Merchant m
             JOIN m.role r
             WHERE m.email = :email OR m.phone = :phone
-            OR r.id = :roleId
+            UNION ALL
+            SELECT
+                NULL          AS id,
+                FALSE         AS email_exists,
+                FALSE         AS phone_exists,
+                TRUE          AS invalid_role
+            WHERE NOT EXISTS (SELECT 1 FROM Role r WHERE r.id = :roleId)
             """)
     List<Map<String, Object>> validateForCreate(String email, String phone, Long roleId);
 
-    @Query("SELECT m.passwordHash FROM Merchant m WHERE m.id = :id")
+    @Query("SELECT m.passwordHash FROM Merchant m WHERE m.id = :id AND m.deletedAt IS NULL")
     String findPasswordHashById(Long id);
 
     @Modifying
-    @Query("UPDATE Merchant m SET m.passwordHash = :passwordHash, m.updatedBy = :updatedBy WHERE m.id = :id")
+    @Query("UPDATE Merchant m SET m.passwordHash = :passwordHash, m.updatedBy = :updatedBy WHERE m.id = :id AND m.deletedAt IS NULL")
     void updatePassword(Long id, String passwordHash, Long updatedBy);
 
     @Modifying
-    @Query("UPDATE Merchant m SET m.kycStatus = :kycStatus, m.updatedBy = :updatedBy WHERE m.id = :id")
+    @Query("UPDATE Merchant m SET m.kycStatus = :kycStatus, m.updatedBy = :updatedBy WHERE m.id = :id AND m.deletedAt IS NULL")
     void updateKycStatus(Long id, KycStatus kycStatus, Long updatedBy);
 
     @Modifying
-    @Query("UPDATE Merchant m SET m.merchantStatus = :merchantStatus, m.updatedBy = :updatedBy WHERE m.id = :id")
+    @Query("UPDATE Merchant m SET m.merchantStatus = :merchantStatus, m.updatedBy = :updatedBy WHERE m.id = :id AND m.deletedAt IS NULL")
     void updateMerchantStatus(Long id, MerchantStatus merchantStatus, Long updatedBy);
 
     @Modifying
-    @Query("UPDATE Merchant m SET m.merchantStatus = :merchantStatus, m.kycStatus = :kycStatus, m.updatedBy = :updatedBy WHERE m.id = :id")
+    @Query("UPDATE Merchant m SET m.merchantStatus = :merchantStatus, m.kycStatus = :kycStatus, m.updatedBy = :updatedBy WHERE m.id = :id AND m.deletedAt IS NULL")
     void updateMerchantStatusAndKycStatus(Long id, MerchantStatus merchantStatus, KycStatus kycStatus, Long updatedBy);
 
     @Query(value = "SELECT * FROM get_merchant_alert_info(:cardHash)", nativeQuery = true)
     Optional<MerchantAlertInfo> findAlertInfoByCardHash(@Param("cardHash") String cardHash);
 
     @Modifying
-    @Query("UPDATE Merchant m SET m.tier = :tier, m.updatedBy = :updatedBy WHERE m.id = :id")
+    @Query("UPDATE Merchant m SET m.tier = :tier, m.updatedBy = :updatedBy WHERE m.id = :id AND m.deletedAt IS NULL")
     void updateTier(Long id, MerchantTier tier, Long updatedBy);
 
     @Query("""
                 SELECT new com.interswitch.verveguarddemo.models.response.MerchantResponse(
                     m.id, m.address, m.kycStatus, m.merchantStatus, m.tier,
-                    m.firstname, m.lastname, m.email, m.phone, m.userStatus, 
+                    m.firstname, m.lastname, m.email, m.phone,
                     m.othername, m.createdAt, m.updatedAt
                 ) 
                 FROM Merchant m 
@@ -84,6 +90,7 @@ public interface MerchantRepository extends JpaRepository<Merchant, Long>, JpaSp
     @Query("""
                 UPDATE Merchant m
                 SET m.updatedBy = :deletedBy,
+                    m.deletedBy = : deletedBy,
                     m.deletedAt = CURRENT_TIMESTAMP
                 WHERE m.id = :merchantId
             """)
@@ -91,11 +98,11 @@ public interface MerchantRepository extends JpaRepository<Merchant, Long>, JpaSp
 
     @Query("""
                 SELECT new com.interswitch.verveguarddemo.models.response.MerchantResponse(
-                    m.id, m.address, m.kycStatus, m.merchantStatus, m.tier, 
-                    m.firstname, m.lastname, m.othername,  m.email, m.phone, m.userStatus, 
+                    m.id, m.address, m.kycStatus, m.merchantStatus, m.tier,
+                    m.firstname, m.lastname, m.othername, m.email, m.phone,
                     m.createdAt, m.updatedAt
-                ) 
-                FROM Merchant m 
+                )
+                FROM Merchant m
                 WHERE m.kycStatus = :kycStatus
             """)
     Page<MerchantResponse> findByKycStatus(KycStatus kycStatus, Pageable pageable);

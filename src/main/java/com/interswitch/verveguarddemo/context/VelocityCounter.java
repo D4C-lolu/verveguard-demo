@@ -13,10 +13,9 @@ import java.time.OffsetDateTime;
 @RequiredArgsConstructor
 public class VelocityCounter {
 
+    private static final String KEY_PREFIX = "fraud:velocity:";
+    private static final Duration RETENTION = Duration.ofHours(25);
     private final StringRedisTemplate redisTemplate;
-
-    private static final String   KEY_PREFIX = "fraud:velocity:";
-    private static final Duration RETENTION  = Duration.ofHours(25);
 
     public void record(String cardNumber, String transactionId) {
         redisTemplate.opsForZSet().add(toKey(cardNumber), transactionId,
@@ -32,7 +31,8 @@ public class VelocityCounter {
         return count != null ? count.intValue() : 0;
     }
 
-    private String toKey(String cardNumber) {
-        return KEY_PREFIX + DigestUtils.sha256Hex(cardNumber);
+    private String toKey(String cardHash) {
+        // cardHash is already hashed, use it directly
+        return KEY_PREFIX + cardHash;
     }
 }

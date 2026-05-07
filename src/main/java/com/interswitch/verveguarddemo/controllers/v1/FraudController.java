@@ -3,7 +3,6 @@ package com.interswitch.verveguarddemo.controllers.v1;
 import com.interswitch.verveguarddemo.constants.Permissions;
 import com.interswitch.verveguarddemo.constants.Roles;
 import com.interswitch.verveguarddemo.models.enums.FraudStatus;
-import com.interswitch.verveguarddemo.models.projections.FraudEvaluationContext;
 import com.interswitch.verveguarddemo.models.request.FraudEvaluationRequest;
 import com.interswitch.verveguarddemo.models.response.FraudAttemptResponse;
 import com.interswitch.verveguarddemo.services.FraudDetectionService;
@@ -33,7 +32,6 @@ public class FraudController {
 
     @PostMapping("evaluate")
     @ResponseStatus(HttpStatus.OK)
-    @PreAuthorize("hasAuthority('" + Permissions.TRANSACTION_CREATE + "')")
     @Operation(
             summary = "Evaluate a transaction for fraud",
             description = "Runs a transaction through the full fraud rule engine. Hard blocks return BLOCKED immediately. Soft flags return SUSPICIOUS but allow the transaction through."
@@ -50,7 +48,7 @@ public class FraudController {
 
     @PostMapping("evaluate/{merchantId}")
     @ResponseStatus(HttpStatus.OK)
-    @PreAuthorize("hasRole('" + Roles.SUPER_ADMIN + "')")
+    @PreAuthorize("hasAuthority('" + Permissions.TRANSACTION_CREATE + "')")
     @Operation(
             summary = "Evaluate a transaction for fraud with specific merchant",
             description = "Runs a transaction through the engine using an explicit Merchant ID. Hard blocks return BLOCKED, soft flags return SUSPICIOUS."
@@ -65,7 +63,7 @@ public class FraudController {
             @PathVariable Long merchantId,
             @RequestBody @Valid FraudEvaluationRequest request,
             HttpServletRequest httpServletRequest) {
-        return fraudDetectionService.evaluateForMerchant(request, merchantId,  IpUtil.extractIp(httpServletRequest));
+        return fraudDetectionService.evaluateForMerchant(request, merchantId, IpUtil.extractIp(httpServletRequest));
     }
 
     @GetMapping("attempts")

@@ -13,4 +13,5 @@ public record AccountResponse(
         String currency,
         BigDecimal balance,
         OffsetDateTime createdAt
-) {}
+) {
+}

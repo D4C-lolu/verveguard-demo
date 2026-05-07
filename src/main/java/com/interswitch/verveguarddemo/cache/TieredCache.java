@@ -47,21 +47,37 @@ public class TieredCache implements org.springframework.cache.Cache {
 
         v = l2.get(key, type);
         if (v != null) {
-            l1.put(key, v); // backfill L1
+            l1.put(key, v);
         }
         return v;
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public <T> T get(@NonNull Object key, @NonNull Callable<T> valueLoader) {
-        T v = l1.get(key, (Class<T>) Object.class);
-        if (v != null) return v;
-
-        v = l2.get(key, valueLoader);
-        if (v != null) {
-            l1.put(key, v); // backfill L1
+        // Check L1 via ValueWrapper to preserve type info
+        ValueWrapper wrapper = l1.get(key);
+        if (wrapper != null) {
+            return (T) wrapper.get();
         }
-        return v;
+
+        // Check L2 via ValueWrapper before invoking loader
+        wrapper = l2.get(key);
+        if (wrapper != null) {
+            T v = (T) wrapper.get();
+            l1.put(key, v); // backfill L1
+            return v;
+        }
+
+        // True cache miss — invoke the loader (hits DB)
+        try {
+            T v = valueLoader.call();
+            l1.put(key, v);
+            l2.put(key, v);
+            return v;
+        } catch (Exception e) {
+            throw new ValueRetrievalException(key, valueLoader, e);
+        }
     }
 
     @Override
@@ -71,14 +87,36 @@ public class TieredCache implements org.springframework.cache.Cache {
     }
 
     @Override
+    public ValueWrapper putIfAbsent(@NonNull Object key, Object value) {
+        ValueWrapper wrapper = get(key);
+        if (wrapper != null) return wrapper;
+        put(key, value);
+        return null;
+    }
+
+    @Override
     public void evict(@NonNull Object key) {
         l1.evict(key);
         l2.evict(key);
     }
 
     @Override
+    public boolean evictIfPresent(@NonNull Object key) {
+        boolean evictedFromL1 = l1.evictIfPresent(key);
+        boolean evictedFromL2 = l2.evictIfPresent(key);
+        return evictedFromL1 || evictedFromL2;
+    }
+
+    @Override
     public void clear() {
         l1.clear();
         l2.clear();
+    }
+
+    @Override
+    public boolean invalidate() {
+        l1.invalidate();
+        l2.invalidate();
+        return true;
     }
 }

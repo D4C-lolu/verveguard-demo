@@ -8,8 +8,8 @@
     <conversionRule conversionWord="wex"
                     class="org.springframework.boot.logging.logback.WhitespaceThrowableProxyConverter"/>
 
-    <property name="GREY"   value="%clr(%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX}){faint}"/>
-    <property name="APP"    value="%clr([${springAppName:-app}]){cyan}"/>
+    <property name="GREY" value="%clr(%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX}){faint}"/>
+    <property name="APP" value="%clr([${springAppName:-app}]){cyan}"/>
     <property name="THREAD" value="%clr([%15.15t]){faint}"/>
     <property name="LOGGER" value="%clr(%-40.40logger{39}){cyan}"/>
 
@@ -18,7 +18,10 @@
          ═══════════════════════════════════════════════ -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>${GREY} ${APP} ${THREAD} %clr(%-5level){ERROR=bold_red, WARN=yellow, INFO=green, DEBUG=blue, TRACE=faint} %clr([traceId=%X{traceId:-NO_TRACE}]){magenta} %clr([spanId=%X{spanId:-NO_SPAN}]){yellow} ${LOGGER} : %msg%n%wex</pattern>
+            <pattern>${GREY} ${APP} ${THREAD} %clr(%-5level){ERROR=bold_red, WARN=yellow, INFO=green, DEBUG=blue,
+                TRACE=faint} %clr([traceId=%X{traceId:-NO_TRACE}]){magenta} %clr([spanId=%X{spanId:-NO_SPAN}]){yellow}
+                ${LOGGER} : %msg%n%wex
+            </pattern>
         </encoder>
     </appender>
 
@@ -27,7 +30,9 @@
          ═══════════════════════════════════════════════ -->
     <appender name="CONSOLE_PLAIN" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} [%15.15t] %-5level [traceId=%X{traceId:-NO_TRACE}] [spanId=%X{spanId:-NO_SPAN}] %-40.40logger{39} : %msg%n%wex</pattern>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} [%15.15t] %-5level [traceId=%X{traceId:-NO_TRACE}]
+                [spanId=%X{spanId:-NO_SPAN}] %-40.40logger{39} : %msg%n%wex
+            </pattern>
         </encoder>
     </appender>
 
@@ -42,13 +47,15 @@
 
         <!-- 2.0.x: labels are top-level, one per line, no commas, no <pattern> wrapper -->
         <labels>
-            app=wallet-app
+            app=verveguar-demo
             level=%level
         </labels>
 
         <!-- 2.0.x: message is top-level with a nested <pattern> -->
         <message>
-            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [traceId=%X{traceId:-NO_TRACE}] [spanId=%X{spanId:-NO_SPAN}] %logger{39} : %msg%n%wex</pattern>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [traceId=%X{traceId:-NO_TRACE}]
+                [spanId=%X{spanId:-NO_SPAN}] %logger{39} : %msg%n%wex
+            </pattern>
         </message>
 
         <!-- 2.0.x: batch is a top-level block -->

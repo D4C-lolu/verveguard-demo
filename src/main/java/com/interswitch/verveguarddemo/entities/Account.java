@@ -19,30 +19,24 @@ import java.util.Objects;
 @Table(name = "accounts")
 public class Account {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @OneToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "card_id", nullable = false)
-    private Card card;
-
-    @Column(nullable = false, unique = true, length = 20)
-    private String accountNumber;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "account_type", nullable = false, length = 50)
-    private AccountType accountType;
-
-    @Column(nullable = false, length = 3)
-    private String currency;
-
-    @Column(nullable = false, precision = 19, scale = 4)
-    private BigDecimal balance;
-
     @CreatedDate
     @Column(nullable = false, updatable = false)
     protected OffsetDateTime createdAt;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    @OneToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "card_id", nullable = false)
+    private Card card;
+    @Column(nullable = false, unique = true, length = 20)
+    private String accountNumber;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "account_type", nullable = false, length = 50)
+    private AccountType accountType;
+    @Column(nullable = false, length = 3)
+    private String currency;
+    @Column(nullable = false, precision = 19, scale = 4)
+    private BigDecimal balance;
 
     public Account(Long id) {
         this.id = id;

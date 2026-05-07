@@ -3,9 +3,9 @@ package com.interswitch.verveguarddemo.services;
 import com.interswitch.verveguarddemo.exceptions.InvalidTokenException;
 import com.interswitch.verveguarddemo.models.enums.PrincipalType;
 import com.interswitch.verveguarddemo.models.response.AuthResponse;
-import com.interswitch.verveguarddemo.security.AdminPrincipal;
 import com.interswitch.verveguarddemo.security.MerchantPrincipal;
 import com.interswitch.verveguarddemo.security.UserDetailsServiceImpl;
+import com.interswitch.verveguarddemo.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -18,7 +18,7 @@ public class TokenService {
     private final UserDetailsServiceImpl userDetailsService;
 
     public AuthResponse issueTokens(UserDetails principal) {
-        String accessToken  = jwtService.generateAccessToken(principal);
+        String accessToken = jwtService.generateAccessToken(principal);
         String refreshToken = jwtService.generateRefreshToken(principal);
         return new AuthResponse(accessToken, refreshToken);
     }
@@ -35,7 +35,7 @@ public class TokenService {
         UserDetails principal = userDetailsService.loadUserById(id, principalType);
 
         return switch (principal) {
-            case AdminPrincipal p    -> issueTokens(p);
+            case UserPrincipal p -> issueTokens(p);
             case MerchantPrincipal p -> issueTokens(p);
             default -> throw new InvalidTokenException("Unsupported principal type");
         };

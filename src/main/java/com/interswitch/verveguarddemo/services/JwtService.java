@@ -4,9 +4,9 @@ import com.interswitch.verveguarddemo.configuration.JwtProperties;
 import com.interswitch.verveguarddemo.entities.Permission;
 import com.interswitch.verveguarddemo.exceptions.UnauthorizedException;
 import com.interswitch.verveguarddemo.models.enums.PrincipalType;
-import com.interswitch.verveguarddemo.security.AdminPrincipal;
 import com.interswitch.verveguarddemo.security.JwtUserPrincipal;
 import com.interswitch.verveguarddemo.security.MerchantPrincipal;
+import com.interswitch.verveguarddemo.security.UserPrincipal;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -60,7 +60,7 @@ public class JwtService {
         PrincipalType principalType;
 
         switch (principal) {
-            case AdminPrincipal p -> {
+            case UserPrincipal p -> {
                 subject = String.valueOf(p.getId());
                 email = p.user().getEmail();
                 role = p.user().getRole().getName();
@@ -73,7 +73,7 @@ public class JwtService {
                 subject = String.valueOf(p.getId());
                 email = p.merchant().getEmail();
                 role = p.merchant().getRole().getName();
-                permissions =  p.merchant().getRole().getPermissions().stream()
+                permissions = p.merchant().getRole().getPermissions().stream()
                         .map(Permission::getName)
                         .toList();
                 principalType = PrincipalType.MERCHANT;
@@ -103,7 +103,7 @@ public class JwtService {
     }
 
     public Long extractUserId(String token) {
-        return  Long.parseLong(extractAllClaims(token).getSubject());
+        return Long.parseLong(extractAllClaims(token).getSubject());
     }
 
     public String extractJti(String token) {

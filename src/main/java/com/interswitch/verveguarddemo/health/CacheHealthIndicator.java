@@ -25,10 +25,10 @@ public class CacheHealthIndicator implements HealthIndicator {
 
         // Merchant blacklist cache (Caffeine raw bean)
         CacheStats merchantStats = blacklistedMerchantCache.stats();
-        details.put("merchantBlacklist.hitRate",  String.format("%.2f%%", merchantStats.hitRate() * 100));
-        details.put("merchantBlacklist.hitCount",  merchantStats.hitCount());
+        details.put("merchantBlacklist.hitRate", String.format("%.2f%%", merchantStats.hitRate() * 100));
+        details.put("merchantBlacklist.hitCount", merchantStats.hitCount());
         details.put("merchantBlacklist.missCount", merchantStats.missCount());
-        details.put("merchantBlacklist.size",      blacklistedMerchantCache.estimatedSize());
+        details.put("merchantBlacklist.size", blacklistedMerchantCache.estimatedSize());
 
         // Fraud eval cache (Caffeine via CacheManager)
         boolean fraudEvalHealthy = false;
@@ -42,10 +42,10 @@ public class CacheHealthIndicator implements HealthIndicator {
                         ((org.springframework.cache.caffeine.CaffeineCache) tiered.getL1()).getNativeCache();
             }
             CacheStats fraudStats = nativeCache.stats();
-            details.put("fraudEval.hitRate",  String.format("%.2f%%", fraudStats.hitRate() * 100));
-            details.put("fraudEval.hitCount",  fraudStats.hitCount());
+            details.put("fraudEval.hitRate", String.format("%.2f%%", fraudStats.hitRate() * 100));
+            details.put("fraudEval.hitCount", fraudStats.hitCount());
             details.put("fraudEval.missCount", fraudStats.missCount());
-            details.put("fraudEval.size",      nativeCache.estimatedSize());
+            details.put("fraudEval.size", nativeCache.estimatedSize());
             fraudEvalHealthy = fraudStats.hitRate() >= 0.5 || fraudStats.requestCount() == 0;
         } else {
             details.put("fraudEval", "unavailable");

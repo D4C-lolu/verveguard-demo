@@ -1,4 +1,5 @@
-CREATE OR REPLACE FUNCTION blacklist_merchant(
+CREATE
+OR REPLACE FUNCTION blacklist_merchant(
     p_merchant_id    bigint,
     p_reason         text,
     p_blacklisted_by bigint
@@ -24,9 +25,9 @@ VALUES (p_merchant_id, p_reason, p_blacklisted_by);
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION sp_card_block_by_hash(
-    p_card_hash  character varying,
-    p_updated_by bigint
+CREATE
+OR REPLACE FUNCTION sp_card_block_by_hash(
+    p_card_hash  character varying
 ) RETURNS boolean
 LANGUAGE plpgsql AS $$
 DECLARE
@@ -43,7 +44,8 @@ RETURN v_rows_affected > 0;
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION get_merchant_alert_info(p_card_hash character varying)
+CREATE
+OR REPLACE FUNCTION get_merchant_alert_info(p_card_hash character varying)
 RETURNS TABLE (email character varying, fullname text)
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -53,7 +55,6 @@ SELECT m.email,
 FROM merchants m
          JOIN cards c ON c.merchant_id = m.id
 WHERE c.card_hash = p_card_hash
-  AND m.deleted_at IS NULL
-    LIMIT 1;
+  AND m.deleted_at IS NULL LIMIT 1;
 END;
 $$;

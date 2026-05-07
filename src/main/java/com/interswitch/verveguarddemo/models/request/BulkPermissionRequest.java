@@ -7,4 +7,5 @@ import java.util.List;
 
 public record BulkPermissionRequest(
         @NotEmpty List<@NotNull Long> permissionIds
-) {}
+) {
+}

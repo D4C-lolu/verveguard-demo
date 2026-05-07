@@ -17,4 +17,5 @@ public record FraudAttemptResponse(
         FraudStatus status,
         List<String> flags,
         OffsetDateTime createdAt
-) {}
+) {
+}

@@ -45,13 +45,13 @@ public class FraudDao {
                 "SELECT sp_fraud_insert_attempt(:cardHash, :merchantId, :ipAddress, " +
                         ":amount, :currency, :status, :flags)",
                 new MapSqlParameterSource()
-                        .addValue("cardHash",   record.cardHash())
+                        .addValue("cardHash", record.cardHash())
                         .addValue("merchantId", record.merchantId())
-                        .addValue("ipAddress",  record.ipAddress())
-                        .addValue("amount",     record.amount())
-                        .addValue("currency",   record.currency())
-                        .addValue("status",     record.status().name())
-                        .addValue("flags",      record.flags().toArray(new String[0]))
+                        .addValue("ipAddress", record.ipAddress())
+                        .addValue("amount", record.amount())
+                        .addValue("currency", record.currency())
+                        .addValue("status", record.status().name())
+                        .addValue("flags", record.flags().toArray(new String[0]))
         );
     }
 
@@ -61,7 +61,7 @@ public class FraudDao {
                 "SELECT sp_fraud_get_card_velocity_count(:cardHash, :since)",
                 new MapSqlParameterSource()
                         .addValue("cardHash", cardHash)
-                        .addValue("since",    since),
+                        .addValue("since", since),
                 Integer.class
         );
         return count != null ? count : 0;
@@ -92,7 +92,7 @@ public class FraudDao {
         List<FraudAttemptResponse> content = namedJdbc.query(
                 "SELECT * FROM sp_fraud_get_attempts(:limit, :offset)",
                 new MapSqlParameterSource()
-                        .addValue("limit",  size)
+                        .addValue("limit", size)
                         .addValue("offset", (long) (page - 1) * size),
                 (rs, rowNum) -> {
                     if (rowNum == 0) total[0] = rs.getLong("total_count");
@@ -102,6 +102,7 @@ public class FraudDao {
 
         return new PageImpl<>(content, PageRequest.of(page - 1, size), total[0]);
     }
+
     private RowMapper<FraudAttemptResponse> fraudAttemptRowMapper() {
         return (rs, _) -> {
             Array flagsArray = rs.getArray("flags");

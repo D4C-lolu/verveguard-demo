@@ -13,4 +13,5 @@ public record CreateMerchantRequest(
         @NotBlank String password,
         @NotNull Long roleId,
         String address
-) {}
+) {
+}

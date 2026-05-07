@@ -9,5 +9,6 @@ public record CreateAccountRequest(
         @NotNull Long merchantId,
         @NotNull AccountType accountType,
         @NotBlank @Size(min = 3, max = 3) String currency
-) {}
+) {
+}
 

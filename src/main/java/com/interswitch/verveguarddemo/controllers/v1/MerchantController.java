@@ -2,6 +2,7 @@ package com.interswitch.verveguarddemo.controllers.v1;
 
 import com.interswitch.verveguarddemo.annotation.ValidSortField;
 import com.interswitch.verveguarddemo.constants.Permissions;
+import com.interswitch.verveguarddemo.constants.Roles;
 import com.interswitch.verveguarddemo.entities.Merchant;
 import com.interswitch.verveguarddemo.models.enums.KycStatus;
 import com.interswitch.verveguarddemo.models.enums.MerchantStatus;
@@ -76,7 +77,7 @@ public class MerchantController {
 
     @Operation(summary = "Get Current Merchant")
     @GetMapping("me")
-    @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_READ + "')")
+    @PreAuthorize("hasRole('" + Roles.MERCHANT + "')")
     public MerchantResponse getCurrentMerchant() {
         return merchantService.getMerchantById(SecurityUtil.getCurrentUserId());
     }
@@ -84,7 +85,7 @@ public class MerchantController {
     @Operation(summary = "Change My Password")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PatchMapping("me/password")
-    @PreAuthorize("hasAuthority('" + Permissions.MERCHANT_READ + "')")
+    @PreAuthorize("hasRole('" + Roles.MERCHANT + "')")
     public void updateMyPassword(@RequestBody @Valid ChangePasswordRequest request) {
         merchantService.updatePassword(SecurityUtil.getCurrentUserId(), request);
     }

@@ -5,9 +5,10 @@ import com.interswitch.verveguarddemo.models.enums.MerchantStatus;
 import jakarta.validation.constraints.NotNull;
 
 public record UpdateMerchantStatusRequest(
-    @NotNull(message = "Merchant status is required")
-    MerchantStatus merchantStatus,
+        @NotNull(message = "Merchant status is required")
+        MerchantStatus merchantStatus,
 
-    @NotNull(message = "KYC status is required")
-    KycStatus kycStatus
-) {}
+        @NotNull(message = "KYC status is required")
+        KycStatus kycStatus
+) {
+}
