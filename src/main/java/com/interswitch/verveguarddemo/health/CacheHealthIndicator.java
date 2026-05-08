@@ -57,12 +57,13 @@ public class CacheHealthIndicator implements HealthIndicator {
             return true; // Don't fail health check if cache is missing
         }
 
-        com.github.benmanes.caffeine.cache.Cache<?, ?> nativeCache =
-                (com.github.benmanes.caffeine.cache.Cache<?, ?>) springCache.getNativeCache();
-        // getNativeCache() on TieredCache returns `this`, so unwrap L1
-        if (nativeCache instanceof TieredCache tiered) {
-            nativeCache = (com.github.benmanes.caffeine.cache.Cache<?, ?>)
+        // Handle TieredCache - unwrap L1 (Caffeine) for stats
+        Cache<?, ?> nativeCache;
+        if (springCache instanceof TieredCache tiered) {
+            nativeCache = (Cache<?, ?>)
                     ((org.springframework.cache.caffeine.CaffeineCache) tiered.getL1()).getNativeCache();
+        } else {
+            nativeCache = (Cache<?, ?>) springCache.getNativeCache();
         }
 
         CacheStats stats = nativeCache.stats();

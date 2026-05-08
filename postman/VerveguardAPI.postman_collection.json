@@ -374,6 +374,45 @@
           "response": []
         },
         {
+          "name": "Change User Password (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204', function() {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"currentPassword\": \"Admin123!\",\n    \"newPassword\": \"NewPassword123!\",\n    \"confirmPassword\": \"NewPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/:userId/password",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", ":userId", "password"],
+              "variable": [
+                { "key": "userId", "value": "1" }
+              ]
+            },
+            "description": "Change user password (admin only)"
+          },
+          "response": []
+        },
+        {
           "name": "Delete User",
           "event": [
             {
@@ -517,6 +556,42 @@
           "response": []
         },
         {
+          "name": "Change My Password (Merchant)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204', function() {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"currentPassword\": \"Merchant123!\",\n    \"newPassword\": \"NewPassword123!\",\n    \"confirmPassword\": \"NewPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/merchants/me/password",
+              "host": ["{{baseUrl}}"],
+              "path": ["merchants", "me", "password"]
+            },
+            "description": "Change own password (requires MERCHANT role)"
+          },
+          "response": []
+        },
+        {
           "name": "Get Merchant by ID",
           "request": {
             "method": "GET",
@@ -629,6 +704,26 @@
               ]
             },
             "description": "Change merchant password (admin only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Status and KYC Status",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/merchants/:merchantId/status-kyc?status=ACTIVE&kycStatus=APPROVED",
+              "host": ["{{baseUrl}}"],
+              "path": ["merchants", ":merchantId", "status-kyc"],
+              "query": [
+                { "key": "status", "value": "ACTIVE" },
+                { "key": "kycStatus", "value": "APPROVED" }
+              ],
+              "variable": [
+                { "key": "merchantId", "value": "1" }
+              ]
+            },
+            "description": "Update merchant status and KYC status simultaneously"
           },
           "response": []
         },
@@ -1294,6 +1389,47 @@
       "name": "Tier Config",
       "description": "Tier configuration endpoints",
       "item": [
+        {
+          "name": "Create Tier Config",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has tier config', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.tier).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"tier\": \"TIER_1\",\n    \"dailyTransactionLimit\": 100000.00,\n    \"singleTransactionLimit\": 10000.00,\n    \"monthlyTransactionLimit\": 1000000.00\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tier-configs",
+              "host": ["{{baseUrl}}"],
+              "path": ["tier-configs"]
+            },
+            "description": "Create a new tier configuration (requires TIER_UPDATE)"
+          },
+          "response": []
+        },
         {
           "name": "List Tier Configs",
           "event": [

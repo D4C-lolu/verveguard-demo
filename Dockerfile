@@ -32,7 +32,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup && \
     apk add --no-cache curl && \
     mkdir -p /opt/geoip
 
-COPY --chown=appuser:appgroup --from=builder /build/target/verveguard-demo.jar app.jar
+COPY --chown=appuser:appgroup --from=builder /build/target/*.jar app.jar
 COPY --chown=appuser:appgroup src/main/resources/GeoLite2-City.mmdb /opt/geoip/GeoLite2-City.mmdb
 
 EXPOSE 8080
