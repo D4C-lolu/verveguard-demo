@@ -162,7 +162,7 @@ function runMerchantScenario(data) {
     });
 
     // ── 1. Ping: measure pure infrastructure overhead ──────────────────────
-    const pingRes = http.get(`${BASE_URL}/health`, {
+    const pingRes = http.get(`${BASE_URL.replace('/api/v1', '')}/actuator/health/ping`, {
         headers,
         tags: { name: 'ping' },
         timeout: '10s',
@@ -219,7 +219,7 @@ function runAdminScenario(data) {
     });
 
     // ── 1. Ping overhead ───────────────────────────────────────────────────
-    const pingRes = http.get(`${BASE_URL}/health`, {
+    const pingRes = http.get(`${BASE_URL.replace('/api/v1', '')}/actuator/health/ping`, {
         headers,
         tags: { name: 'ping' },
         timeout: '10s',
@@ -253,17 +253,18 @@ function runAdminScenario(data) {
 // Summary
 // -----------------------------------------------------------------------------
 
-function fmt(val, unit) {
-    return val != null ? `${val.toFixed(2)} ${unit}` : 'N/A';
+function fmt(val, unit, width = 0) {
+    const str = val != null ? `${val.toFixed(2)} ${unit}` : 'N/A';
+    return width > 0 ? str.padEnd(width) : str;
 }
 
 function grade(p95) {
     if (p95 == null) return '?';
-    if (p95 < 100)  return '🟢 Excellent';
-    if (p95 < 300)  return '🟡 Good';
-    if (p95 < 600)  return '🟠 Acceptable';
-    if (p95 < 1000) return '🔴 Slow';
-    return '💀 Critical';
+    if (p95 < 100)  return 'Excellent';
+    if (p95 < 300)  return 'Good';
+    if (p95 < 600)  return 'Acceptable';
+    if (p95 < 1000) return 'Slow';
+    return 'Critical';
 }
 
 export function handleSummary(data) {
@@ -281,9 +282,14 @@ export function handleSummary(data) {
     const appLogicAvg = (ev?.avg != null && pi?.avg != null) ? ev.avg - pi.avg : null;
     const appLogicP95 = (ev?.['p(95)'] != null && pi?.['p(95)'] != null) ? ev['p(95)'] - pi['p(95)'] : null;
 
-    const W = 65;
-    const line  = '─'.repeat(W);
-    const dline = '═'.repeat(W);
+    // Column widths
+    const COL1 = 10;  // Metric
+    const COL2 = 18;  // Ping
+    const COL3 = 18;  // Evaluate
+    const COL4 = 14;  // App Logic
+    const W = COL1 + COL2 + COL3 + COL4 + 6;
+    const line  = '-'.repeat(W);
+    const dline = '='.repeat(W);
 
     console.log('\n' + dline);
     console.log(`  ${scenario} STRESS TEST RESULTS`);
@@ -292,69 +298,69 @@ export function handleSummary(data) {
     console.log(`  Base URL : ${BASE_URL}`);
 
     // ── Latency ─────────────────────────────────────────────────────────────
-    console.log('\n  📊 LATENCY BREAKDOWN');
-    console.log(line);
-    console.log(`  ${'Metric'.padEnd(14)} ${'Ping (overhead)'.padEnd(20)} ${'Evaluate (total)'.padEnd(20)} App Logic`);
-    console.log(line);
+    console.log('\n  LATENCY BREAKDOWN');
+    console.log('  ' + line);
+    console.log(`  ${'Metric'.padEnd(COL1)} ${'Ping'.padEnd(COL2)} ${'Evaluate'.padEnd(COL3)} ${'App Logic'.padEnd(COL4)}`);
+    console.log('  ' + line);
 
     const rows = [
-        ['Min',   pi?.min,        ev?.min],
-        ['Avg',   pi?.avg,        ev?.avg],
-        ['Median',pi?.med,        ev?.med],
-        ['p(90)', pi?.['p(90)'],  ev?.['p(90)']],
-        ['p(95)', pi?.['p(95)'],  ev?.['p(95)']],
-        ['Max',   pi?.max,        ev?.max],
+        ['Min',    pi?.min,        ev?.min],
+        ['Avg',    pi?.avg,        ev?.avg],
+        ['Median', pi?.med,        ev?.med],
+        ['p(90)',  pi?.['p(90)'],  ev?.['p(90)']],
+        ['p(95)',  pi?.['p(95)'],  ev?.['p(95)']],
+        ['Max',    pi?.max,        ev?.max],
     ];
 
     for (const [label, pingVal, evalVal] of rows) {
         const logic = (pingVal != null && evalVal != null) ? evalVal - pingVal : null;
         console.log(
-            `  ${label.padEnd(14)} ${fmt(pingVal, 'ms').padEnd(20)} ${fmt(evalVal, 'ms').padEnd(20)} ${fmt(logic, 'ms')}`
+            `  ${label.padEnd(COL1)} ${fmt(pingVal, 'ms', COL2)} ${fmt(evalVal, 'ms', COL3)} ${fmt(logic, 'ms', COL4)}`
         );
     }
 
     // ── Overhead summary ────────────────────────────────────────────────────
-    console.log('\n  🔍 OVERHEAD ANALYSIS');
-    console.log(line);
+    console.log('\n  OVERHEAD ANALYSIS');
+    console.log('  ' + line);
     if (pi?.avg != null && ev?.avg != null) {
         const overheadPct = ((pi.avg / ev.avg) * 100).toFixed(1);
         const logicPct    = (100 - overheadPct).toFixed(1);
         console.log(`  Avg response breakdown:`);
-        console.log(`    Infrastructure overhead : ${fmt(pi.avg, 'ms')}  (${overheadPct}% of total)`);
-        console.log(`    App / fraud logic       : ${fmt(appLogicAvg, 'ms')}  (${logicPct}% of total)`);
-        console.log(`    Total                   : ${fmt(ev.avg, 'ms')}`);
+        console.log(`    Infrastructure : ${fmt(pi.avg, 'ms', 14)} (${overheadPct}%)`);
+        console.log(`    App logic      : ${fmt(appLogicAvg, 'ms', 14)} (${logicPct}%)`);
+        console.log(`    Total          : ${fmt(ev.avg, 'ms')}`);
     }
     if (appLogicP95 != null) {
-        console.log(`  p(95) app logic cost      : ${fmt(appLogicP95, 'ms')}`);
+        console.log(`  p(95) app logic  : ${fmt(appLogicP95, 'ms')}`);
     }
 
     // ── Performance grade ───────────────────────────────────────────────────
-    console.log('\n  🏁 PERFORMANCE GRADE');
-    console.log(line);
-    console.log(`  Evaluate p(95) : ${fmt(ev?.['p(95)'], 'ms')}  →  ${grade(ev?.['p(95)'])}`);
-    console.log(`  Ping p(95)     : ${fmt(pi?.['p(95)'], 'ms')}  →  ${grade(pi?.['p(95)'])}`);
-    console.log(`  Threshold      : p(95) < 1000ms`);
+    console.log('\n  PERFORMANCE GRADE');
+    console.log('  ' + line);
+    console.log(`  Evaluate p(95)   : ${fmt(ev?.['p(95)'], 'ms', 14)} -> ${grade(ev?.['p(95)'])}`);
+    console.log(`  Ping p(95)       : ${fmt(pi?.['p(95)'], 'ms', 14)} -> ${grade(pi?.['p(95)'])}`);
+    console.log(`  Threshold        : p(95) < 1000ms`);
 
     // ── Throughput ──────────────────────────────────────────────────────────
-    console.log('\n  ⚡ THROUGHPUT');
-    console.log(line);
-    if (req?.count != null) console.log(`  Total HTTP requests : ${req.count}`);
-    if (req?.rate  != null) console.log(`  Requests/sec        : ${req.rate.toFixed(2)}`);
-    if (ec?.count  != null) console.log(`  Fraud evaluations   : ${ec.count}`);
-    if (its?.count != null) console.log(`  Iterations          : ${its.count}`);
+    console.log('\n  THROUGHPUT');
+    console.log('  ' + line);
+    if (req?.count != null) console.log(`  HTTP requests    : ${req.count}`);
+    if (req?.rate  != null) console.log(`  Requests/sec     : ${req.rate.toFixed(2)}`);
+    if (ec?.count  != null) console.log(`  Evaluations      : ${ec.count}`);
+    if (its?.count != null) console.log(`  Iterations       : ${its.count}`);
 
     // ── Reliability ─────────────────────────────────────────────────────────
-    console.log('\n  ✅ RELIABILITY');
-    console.log(line);
+    console.log('\n  RELIABILITY');
+    console.log('  ' + line);
     if (efr?.rate != null) {
         const s = (100 - efr.rate * 100).toFixed(2);
         const f = (efr.rate * 100).toFixed(2);
-        console.log(`  Evaluate  →  Success: ${s}%   Failures: ${f}%`);
+        console.log(`  Evaluate         : ${s}% success, ${f}% fail`);
     }
     if (pfr?.rate != null) {
         const s = (100 - pfr.rate * 100).toFixed(2);
         const f = (pfr.rate * 100).toFixed(2);
-        console.log(`  Ping      →  Success: ${s}%   Failures: ${f}%`);
+        console.log(`  Ping             : ${s}% success, ${f}% fail`);
     }
 
     console.log('\n' + dline + '\n');
