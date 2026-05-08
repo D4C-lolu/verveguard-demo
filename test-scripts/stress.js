@@ -1,89 +1,259 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { Trend, Rate } from 'k6/metrics';
+import { Trend, Rate, Counter } from 'k6/metrics';
 
-// Custom metrics for granular timing (mirrors the Node.js stress test output)
-const transferDuration = new Trend('transfer_duration', true);
-const loginDuration = new Trend('login_duration', true);
-const transferFailRate = new Rate('transfer_fail_rate');
+/**
+ * VerveguardAPI Stress Test
+ *
+ * Pre-authenticates merchants in setup(), then stress tests fraud evaluation.
+ *
+ * Scenarios:
+ *   - merchant: POST /fraud/evaluate (default)
+ *   - admin:    POST /fraud/evaluate/{merchantId}
+ *
+ * Usage:
+ *   k6 run stress.js
+ *   k6 run -e SCENARIO=admin stress.js
+ *   k6 run -e BASE_URL=http://host:8080/api/v1 stress.js
+ */
 
-// Global cache to store tokens so we don't spam Login
-const tokenCache = {};
+const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080/api/v1';
+const SCENARIO = __ENV.SCENARIO || 'merchant';
+const PASSWORD = 'Admin123!';
+const NUM_MERCHANTS = 20;  // Keep small for faster setup
+
+// Metrics
+const evaluateDuration = new Trend('evaluate_duration', true);
+const evaluateFailRate = new Rate('evaluate_fail_rate');
+const evaluateCount = new Counter('evaluate_count');
 
 export const options = {
-    stages: [
-        { duration: '20s', target: 50 },  // Ramp up
-        { duration: '40s', target: 100 }, // Load
-        { duration: '10s', target: 0 },   // Scale down
-    ],
+    scenarios: {
+        load: {
+            executor: 'ramping-vus',
+            startVUs: 0,
+            stages: [
+                { duration: '10s', target: 15 },
+                { duration: '30s', target: 30 },
+                { duration: '10s', target: 0 },
+            ],
+            gracefulRampDown: '10s',
+        },
+    },
     thresholds: {
-        'transfer_duration': ['p(95)<1000'],  // Transfer-only p95 under 1s
-        'transfer_fail_rate': ['rate<0.01'],  // Less than 1% transfer failures
-        'login_duration': ['p(95)<500'],      // Login p95 under 500ms
+        'evaluate_duration': ['p(95)<1000'],
+        'evaluate_fail_rate': ['rate<0.05'],
     },
 };
 
-export default function () {
-    const BASE_URL = 'http://localhost:8080/api/v1';
-    const merchantIndex = (__VU % 200) + 1;
-    const email = `merchant${merchantIndex}@stresstest.com`;
+// -----------------------------------------------------------------------------
+// Setup: Run ONCE before all VUs - authenticate all merchants
+// -----------------------------------------------------------------------------
 
-    // 1. GET OR CREATE TOKEN — timed separately
-    let token = tokenCache[email];
+export function setup() {
+    console.log(`\n========== Setup: Authenticating ${NUM_MERCHANTS} merchants ==========\n`);
 
-    if (!token) {
-        const loginRes = http.post(
+    const merchants = [];
+
+    for (let i = 1; i <= NUM_MERCHANTS; i++) {
+        const email = `merchant${i}@stresstest.com`;
+        const cardNumber = `4${String(i).padStart(15, '0')}`;
+
+        const res = http.post(
             `${BASE_URL}/auth/login`,
-            JSON.stringify({ email, password: 'Admin123!' }),
-            { headers: { 'Content-Type': 'application/json' } }
+            JSON.stringify({ email, password: PASSWORD }),
+            {
+                headers: { 'Content-Type': 'application/json' },
+                timeout: '60s',
+            }
         );
 
-        // Record login time only on actual login attempts
-        loginDuration.add(loginRes.timings.duration);
-
-        if (loginRes.status === 200) {
-            token = loginRes.json('data.accessToken');
-            tokenCache[email] = token;
+        if (res.status === 200) {
+            try {
+                const token = res.json('data.accessToken');
+                merchants.push({ id: i, email, cardNumber, token });
+                console.log(`  [OK] ${email}`);
+            } catch (e) {
+                console.log(`  [FAIL] ${email} - parse error`);
+            }
         } else {
-            console.error(`FAILED LOGIN: ${email} - Status: ${loginRes.status}`);
-            sleep(1);
-            return;
+            console.log(`  [FAIL] ${email} - ${res.status}`);
+        }
+
+        sleep(0.5);  // Gentle pacing - one login per 500ms
+    }
+
+    // For admin scenario, also get admin token
+    if (SCENARIO === 'admin') {
+        const adminEmail = 'cleanuser@verveguard.com';
+        const res = http.post(
+            `${BASE_URL}/auth/login`,
+            JSON.stringify({ email: adminEmail, password: PASSWORD }),
+            {
+                headers: { 'Content-Type': 'application/json' },
+                timeout: '60s',
+            }
+        );
+
+        if (res.status === 200) {
+            const adminToken = res.json('data.accessToken');
+            console.log(`  [OK] ${adminEmail} (admin)`);
+            return { merchants, adminToken };
+        } else {
+            console.log(`  [FAIL] ${adminEmail} - ${res.status}`);
         }
     }
 
-    // 2. THE TRANSFER — timed in isolation
-    const payload = JSON.stringify({
-        fromAccountNumber: `33${String(merchantIndex).padStart(8, '0')}`,
-        toAccountNumber: `33${String(merchantIndex + 200).padStart(8, '0')}`,
-        amount: 100,
-        currency: 'NGN',
-        cardNumber: `4${String(merchantIndex).padStart(15, '0')}`,
-        description: `k6 stress test VU=${__VU} ITER=${__ITER}`
-    });
+    console.log(`\n========== Setup complete: ${merchants.length} merchants ready ==========\n`);
+    return { merchants };
+}
 
-    const params = {
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'X-Idempotency-Key': `k6-${__VU}-${__ITER}`
-        },
-        tags: { name: 'transfer' }, // Groups this request in k6 Cloud/output
-    };
+// -----------------------------------------------------------------------------
+// Main: Stress test fraud evaluation with pre-authenticated tokens
+// -----------------------------------------------------------------------------
 
-    const res = http.post(`${BASE_URL}/transfers/me`, payload, params);
-
-    // Record transfer time regardless of outcome
-    transferDuration.add(res.timings.duration);
-
-    const success = check(res, {
-        'transfer status 201': (r) => r.status === 201,
-    });
-
-    transferFailRate.add(!success);
-
-    if (!success) {
-        console.error(`FAILED TRANSFER: VU=${__VU} merchant=${email} status=${res.status} body=${res.body.substring(0, 120)}`);
+export default function (data) {
+    if (!data.merchants || data.merchants.length === 0) {
+        console.error('No merchants available - setup failed');
+        sleep(1);
+        return;
     }
 
-    sleep(0.5);
+    if (SCENARIO === 'admin') {
+        runAdminScenario(data);
+    } else {
+        runMerchantScenario(data);
+    }
+}
+
+function runMerchantScenario(data) {
+    const merchant = data.merchants[__VU % data.merchants.length];
+
+    const payload = JSON.stringify({
+        amount: 100 + Math.floor(Math.random() * 9900),
+        currency: 'NGN',
+        cardNumber: merchant.cardNumber,
+    });
+
+    const res = http.post(`${BASE_URL}/fraud/evaluate`, payload, {
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${merchant.token}`,
+            'X-Forwarded-For': `192.168.${__VU % 256}.${__ITER % 256}`,
+        },
+        tags: { name: 'fraud-evaluate' },
+        timeout: '30s',
+    });
+
+    evaluateDuration.add(res.timings.duration);
+    evaluateCount.add(1);
+
+    const success = check(res, {
+        'status 200': (r) => r.status === 200,
+    });
+
+    evaluateFailRate.add(!success);
+
+    if (!success) {
+        console.error(`FAIL: ${merchant.email} status=${res.status}`);
+    }
+
+    sleep(0.2 + Math.random() * 0.1);
+}
+
+function runAdminScenario(data) {
+    if (!data.adminToken) {
+        console.error('No admin token - setup failed');
+        sleep(1);
+        return;
+    }
+
+    const merchant = data.merchants[Math.floor(Math.random() * data.merchants.length)];
+
+    const payload = JSON.stringify({
+        amount: 100 + Math.floor(Math.random() * 9900),
+        currency: 'NGN',
+        cardNumber: merchant.cardNumber,
+    });
+
+    const res = http.post(`${BASE_URL}/fraud/evaluate/${merchant.id}`, payload, {
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${data.adminToken}`,
+            'X-Forwarded-For': `10.0.${__VU % 256}.${__ITER % 256}`,
+        },
+        tags: { name: 'fraud-evaluate-admin' },
+        timeout: '30s',
+    });
+
+    evaluateDuration.add(res.timings.duration);
+    evaluateCount.add(1);
+
+    const success = check(res, {
+        'status 200': (r) => r.status === 200,
+    });
+
+    evaluateFailRate.add(!success);
+
+    if (!success) {
+        console.error(`ADMIN FAIL: merchantId=${merchant.id} status=${res.status}`);
+    }
+
+    sleep(0.2 + Math.random() * 0.1);
+}
+
+export function handleSummary(data) {
+    const scenario = SCENARIO === 'admin' ? 'Admin' : 'Merchant';
+
+    // Extract metrics
+    const evalDuration = data.metrics.evaluate_duration;
+    const evalFailRate = data.metrics.evaluate_fail_rate;
+    const evalCount = data.metrics.evaluate_count;
+    const httpReqs = data.metrics.http_reqs;
+    const iterations = data.metrics.iterations;
+
+    console.log('\n' + '='.repeat(65));
+    console.log(`  ${scenario.toUpperCase()} STRESS TEST RESULTS`);
+    console.log('='.repeat(65));
+    console.log(`  Endpoint:     ${SCENARIO === 'admin' ? 'POST /fraud/evaluate/{merchantId}' : 'POST /fraud/evaluate'}`);
+    console.log(`  Base URL:     ${BASE_URL}`);
+    console.log('-'.repeat(65));
+
+    if (evalDuration && evalDuration.values) {
+        const v = evalDuration.values;
+        console.log('  LATENCY (evaluate_duration)');
+        console.log(`    Min:        ${v.min?.toFixed(2) || 'N/A'} ms`);
+        console.log(`    Avg:        ${v.avg?.toFixed(2) || 'N/A'} ms`);
+        console.log(`    Med:        ${v.med?.toFixed(2) || 'N/A'} ms`);
+        console.log(`    Max:        ${v.max?.toFixed(2) || 'N/A'} ms`);
+        console.log(`    p(90):      ${v['p(90)']?.toFixed(2) || 'N/A'} ms`);
+        console.log(`    p(95):      ${v['p(95)']?.toFixed(2) || 'N/A'} ms`);
+        console.log(`    p(99):      ${v['p(99)']?.toFixed(2) || 'N/A'} ms`);
+    }
+
+    console.log('-'.repeat(65));
+    console.log('  THROUGHPUT');
+    if (httpReqs && httpReqs.values) {
+        console.log(`    Total Reqs: ${httpReqs.values.count || 'N/A'}`);
+        console.log(`    Req/s:      ${httpReqs.values.rate?.toFixed(2) || 'N/A'}`);
+    }
+    if (evalCount && evalCount.values) {
+        console.log(`    Evaluations: ${evalCount.values.count || 'N/A'}`);
+    }
+    if (iterations && iterations.values) {
+        console.log(`    Iterations: ${iterations.values.count || 'N/A'}`);
+    }
+
+    console.log('-'.repeat(65));
+    console.log('  RELIABILITY');
+    if (evalFailRate && evalFailRate.values) {
+        const failPct = (evalFailRate.values.rate * 100).toFixed(2);
+        const passPct = (100 - evalFailRate.values.rate * 100).toFixed(2);
+        console.log(`    Success:    ${passPct}%`);
+        console.log(`    Failures:   ${failPct}%`);
+    }
+
+    console.log('='.repeat(65) + '\n');
+
+    return {};
 }

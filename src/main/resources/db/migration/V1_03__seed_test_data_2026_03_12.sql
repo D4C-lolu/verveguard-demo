@@ -43,6 +43,10 @@ INSERT INTO cards (merchant_id, card_number, card_type, scheme,
 VALUES ((SELECT id FROM merchants WHERE email = 'testmerchant@verveguard.com'),
 		'4111********1111', 'VIRTUAL', 'VERVE', 12, 2027,
 		encode(digest('4111111111111111', 'sha256'), 'hex'),
+		'ACTIVE', now(), now()),
+	   ((SELECT id FROM merchants WHERE email = 'testmerchant2@verveguard.com'),
+		'4222********2222', 'VIRTUAL', 'VERVE', 12, 2027,
+		encode(digest('4222222222222222', 'sha256'), 'hex'),
 		'ACTIVE', now(), now());
 
 -- =============================================================
@@ -52,7 +56,9 @@ INSERT INTO accounts (card_id, account_number, account_type,
 					  currency, balance, account_status,
 					  created_at)
 VALUES ((SELECT id FROM cards WHERE card_hash = encode(digest('4111111111111111', 'sha256'), 'hex')),
-		'1100000001', 'SETTLEMENT', 'NGN', 10000000.0000, 'ACTIVE', now());
+		'1100000001', 'SETTLEMENT', 'NGN', 10000000.0000, 'ACTIVE', now()),
+	   ((SELECT id FROM cards WHERE card_hash = encode(digest('4222222222222222', 'sha256'), 'hex')),
+		'1200000000', 'SETTLEMENT', 'NGN', 5000000.0000, 'ACTIVE', now());
 
 -- =============================================================
 --  MERCHANT BLACKLIST  (merchant 2 — testmerchant2@verveguard.com)

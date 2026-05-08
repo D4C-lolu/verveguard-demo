@@ -41,7 +41,7 @@ public class FraudDao {
     }
 
     public void insertFraudAttempt(FraudAttemptRecord record) {
-        namedJdbc.update(
+        namedJdbc.query(
                 "SELECT sp_fraud_insert_attempt(:cardHash, :merchantId, :ipAddress, " +
                         ":amount, :currency, :status, :flags)",
                 new MapSqlParameterSource()
@@ -51,7 +51,8 @@ public class FraudDao {
                         .addValue("amount", record.amount())
                         .addValue("currency", record.currency())
                         .addValue("status", record.status().name())
-                        .addValue("flags", record.flags().toArray(new String[0]))
+                        .addValue("flags", record.flags().toArray(new String[0])),
+                (_) -> null  // Discard the void result
         );
     }
 

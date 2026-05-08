@@ -176,7 +176,7 @@ async function scenarioBlacklisted() {
         const res = await evaluateFraud(token, {
             amount: 1000,
             currency: 'NGN',
-            cardNumber: '4000000000000002'  // merchant2's card
+            cardNumber: '4222222222222222'  // merchant2's card (blacklisted)
         }, clientIp);
 
         const fraudStatus = fraudLabel(res.payload);

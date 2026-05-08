@@ -35,10 +35,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 3G
+          cpus: '4'
+          memory: 4G
         reservations:
-          cpus: '1'
+          cpus: '2'
           memory: 2G
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:${SERVER_PORT}/actuator/health" ]

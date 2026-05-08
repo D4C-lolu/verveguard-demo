@@ -48,11 +48,12 @@ ENTRYPOINT ["java", \
     "-XX:+UseContainerSupport", \
     "-XX:MaxRAMPercentage=75.0", \
     "-XX:InitialRAMPercentage=50.0", \
-    "-XX:ActiveProcessorCount=2", \
+    "-XX:ActiveProcessorCount=4", \
     "-XX:+TieredCompilation", \
     "-XX:+OptimizeStringConcat", \
-    "-XX:ReservedCodeCacheSize=64m", \
+    "-XX:ReservedCodeCacheSize=128m", \
+    "-XX:ConcGCThreads=2", \
     "-Xss512k", \
     "-Djava.security.egd=file:/dev/./urandom", \
-    "-Dspring.profiles.active=dev", \
+    "-Dspring.profiles.active=prod", \
     "-jar", "app.jar"]

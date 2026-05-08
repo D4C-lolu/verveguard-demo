@@ -62,7 +62,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/*/auth/logout", "/api/*/auth/logout-all").authenticated()
                         .requestMatchers("/api/*/auth/**").permitAll()
                         .requestMatchers("/api/*/merchants/register").permitAll()
-                        .requestMatchers("/api/*/fraud/evaluate/*").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
