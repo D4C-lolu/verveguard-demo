@@ -32,7 +32,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup && \
     apk add --no-cache curl && \
     mkdir -p /opt/geoip
 
-COPY --from=builder /build/target/wallet-app-*.jar app.jar
+COPY --from=builder /build/target/verveguarddemo-*.jar app.jar
 COPY src/main/resources/GeoLite2-City.mmdb /opt/geoip/GeoLite2-City.mmdb
 
 RUN chown appuser:appgroup app.jar && \
