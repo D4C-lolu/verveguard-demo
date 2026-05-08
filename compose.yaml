@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: wallet-app
+    container_name: verveguard-demo
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SERVER_PORT: ${SERVER_PORT}

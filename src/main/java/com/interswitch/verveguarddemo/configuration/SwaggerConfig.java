@@ -46,7 +46,7 @@ public class SwaggerConfig {
 
         return new OpenAPI()
                 .info(new Info()
-                        .title("Wallet API")
+                        .title("VerveGuard Demo API")
                         .version("1.0.0"))
                 .components(new Components()
                         .addSchemas("ApiError", errorSchema)
