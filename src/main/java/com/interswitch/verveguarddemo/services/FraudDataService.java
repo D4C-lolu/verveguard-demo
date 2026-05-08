@@ -1,5 +1,6 @@
 package com.interswitch.verveguarddemo.services;
 
+import com.interswitch.verveguarddemo.constants.CacheId;
 import com.interswitch.verveguarddemo.dao.FraudDao;
 import com.interswitch.verveguarddemo.models.projections.StaticFraudData;
 import lombok.RequiredArgsConstructor;
@@ -15,12 +16,12 @@ public class FraudDataService {
 
     private final FraudDao fraudDao;
 
-    @Cacheable(value = "fraud-eval", key = "#cardHash")
+    @Cacheable(value = CacheId.Names.FRAUD_EVALUATION, key = "#cardHash")
     public StaticFraudData getEvaluationData(String cardHash) {
         return fraudDao.getEvaluationData(cardHash);
     }
 
-    @CacheEvict(value = "fraud-eval", key = "#cardHash")
+    @CacheEvict(value = CacheId.Names.FRAUD_EVALUATION, key = "#cardHash")
     public void evict(String cardHash) {
         log.debug("Evicted fraud eval cache for cardHash={}", cardHash);
     }

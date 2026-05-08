@@ -13,14 +13,14 @@ RETURNS TABLE (
 BEGIN
 RETURN QUERY
 SELECT a.id,
-       c.merchant_id,
-       a.account_number,
-       a.account_type,
-       a.currency,
-       a.balance,
-       a.created_at
+	   c.merchant_id,
+	   a.account_number,
+	   a.account_type,
+	   a.currency,
+	   a.balance,
+	   a.created_at
 FROM accounts a
-         JOIN cards c ON c.id = a.card_id
+		 JOIN cards c ON c.id = a.card_id
 WHERE c.merchant_id = p_merchant_id;
 END;
 $$;
@@ -40,14 +40,14 @@ RETURNS TABLE (
 BEGIN
 RETURN QUERY
 SELECT a.id,
-       c.merchant_id,
-       a.account_number,
-       a.account_type,
-       a.currency,
-       a.balance,
-       a.created_at
+	   c.merchant_id,
+	   a.account_number,
+	   a.account_type,
+	   a.currency,
+	   a.balance,
+	   a.created_at
 FROM accounts a
-         JOIN cards c ON c.id = a.card_id
+		 JOIN cards c ON c.id = a.card_id
 WHERE c.card_hash = encode(digest(p_card_number, 'sha256'), 'hex');
 END;
 $$;

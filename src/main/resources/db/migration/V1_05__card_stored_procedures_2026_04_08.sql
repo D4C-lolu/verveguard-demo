@@ -14,9 +14,9 @@ DECLARE
 v_card_id bigint;
 BEGIN
 INSERT INTO cards (merchant_id, card_number, card_hash, card_type, scheme,
-                   expiry_month, expiry_year, card_status, created_at, updated_at)
+				   expiry_month, expiry_year, card_status, created_at, updated_at)
 VALUES (p_merchant_id, p_card_number, p_card_hash, p_card_type, p_scheme,
-        p_expiry_month, p_expiry_year, p_card_status, now(), now()) RETURNING id
+		p_expiry_month, p_expiry_year, p_card_status, now(), now()) RETURNING id
 INTO v_card_id;
 RETURN v_card_id;
 END;
@@ -29,11 +29,11 @@ RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
 INSERT INTO accounts (card_id, account_number, account_type, account_status, currency, balance)
 VALUES (p_card_id,
-        LPAD(nextval('account_number_seq')::text, 10, '0'),
-        'SETTLEMENT',
-        'ACTIVE',
-        'NGN',
-        ROUND((random() * 4990000 + 10000)::numeric, 4));
+		LPAD(nextval('account_number_seq')::text, 10, '0'),
+		'SETTLEMENT',
+		'ACTIVE',
+		'NGN',
+		ROUND((random() * 4990000 + 10000):: numeric, 4));
 END;
 $$;
 
@@ -50,8 +50,8 @@ OR REPLACE FUNCTION sp_card_get_creation_validation(
 BEGIN
 RETURN QUERY
 SELECT m.kyc_status,
-       EXISTS (SELECT 1 FROM cards WHERE card_hash = p_card_hash)     AS card_hash_exists,
-       EXISTS (SELECT 1 FROM cards WHERE merchant_id = p_merchant_id) AS already_has_card
+	   EXISTS (SELECT 1 FROM cards WHERE card_hash = p_card_hash)     AS card_hash_exists,
+	   EXISTS (SELECT 1 FROM cards WHERE merchant_id = p_merchant_id) AS already_has_card
 FROM merchants m
 WHERE m.id = p_merchant_id;
 END;
@@ -79,21 +79,21 @@ RETURNS TABLE (
 BEGIN
 RETURN QUERY
 SELECT c.id,
-       c.merchant_id,
-       c.card_number,
-       c.card_type,
-       c.scheme,
-       c.expiry_month,
-       c.expiry_year,
-       c.card_status,
-       a.account_number,
-       a.account_type,
-       a.currency,
-       a.balance,
-       c.created_at,
-       c.updated_at
+	   c.merchant_id,
+	   c.card_number,
+	   c.card_type,
+	   c.scheme,
+	   c.expiry_month,
+	   c.expiry_year,
+	   c.card_status,
+	   a.account_number,
+	   a.account_type,
+	   a.currency,
+	   a.balance,
+	   c.created_at,
+	   c.updated_at
 FROM cards c
-         JOIN accounts a ON a.card_id = c.id
+		 JOIN accounts a ON a.card_id = c.id
 WHERE c.merchant_id = p_merchant_id;
 END;
 $$;
@@ -120,21 +120,21 @@ RETURNS TABLE (
 BEGIN
 RETURN QUERY
 SELECT c.id,
-       c.merchant_id,
-       c.card_number,
-       c.card_type,
-       c.scheme,
-       c.expiry_month,
-       c.expiry_year,
-       c.card_status,
-       a.account_number,
-       a.account_type,
-       a.currency,
-       a.balance,
-       c.created_at,
-       c.updated_at
+	   c.merchant_id,
+	   c.card_number,
+	   c.card_type,
+	   c.scheme,
+	   c.expiry_month,
+	   c.expiry_year,
+	   c.card_status,
+	   a.account_number,
+	   a.account_type,
+	   a.currency,
+	   a.balance,
+	   c.created_at,
+	   c.updated_at
 FROM cards c
-         JOIN accounts a ON a.card_id = c.id
+		 JOIN accounts a ON a.card_id = c.id
 WHERE c.card_hash = encode(digest(p_card_number, 'sha256'), 'hex');
 END;
 $$;
@@ -180,7 +180,8 @@ END;
 $$;
 
 -- Block card manually
-CREATE OR REPLACE FUNCTION sp_card_block(p_id bigint)
+CREATE
+OR REPLACE FUNCTION sp_card_block(p_id bigint)
 RETURNS text LANGUAGE plpgsql AS $$
 DECLARE
 v_card_hash text;
@@ -188,8 +189,8 @@ BEGIN
 UPDATE cards
 SET card_status = 'BLOCKED',
 	updated_at  = now()
-WHERE id = p_id
-	RETURNING card_hash INTO v_card_hash;
+WHERE id = p_id RETURNING card_hash
+INTO v_card_hash;
 
 RETURN v_card_hash;
 END;
@@ -202,7 +203,7 @@ RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
 UPDATE cards
 SET card_status = 'EXPIRED',
-    updated_at  = now()
+	updated_at  = now()
 WHERE card_status = 'ACTIVE'
   AND (expiry_year, expiry_month) < (EXTRACT(YEAR FROM now()), EXTRACT(MONTH FROM now()));
 END;
@@ -214,7 +215,7 @@ OR REPLACE FUNCTION sp_card_exists(p_id bigint)
 RETURNS boolean LANGUAGE plpgsql AS $$
 BEGIN
 RETURN EXISTS (SELECT 1
-               FROM cards
-               WHERE id = p_id);
+			   FROM cards
+			   WHERE id = p_id);
 END;
 $$;

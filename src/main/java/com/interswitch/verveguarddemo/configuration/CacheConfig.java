@@ -21,6 +21,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 
 import java.time.Duration;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Configuration
@@ -39,7 +40,10 @@ public class CacheConfig {
 
     @Bean
     public CaffeineCacheManager caffeineCacheManager() {
-        CaffeineCacheManager manager = new CaffeineCacheManager(CacheId.FRAUD_EVALUATION.getCacheName()); // only fraud-eval gets L1
+        CaffeineCacheManager manager = new CaffeineCacheManager(
+                CacheId.FRAUD_EVALUATION.getCacheName(),
+                CacheId.RATE_LIMIT.getCacheName()
+        );
         manager.setCaffeine(Caffeine.newBuilder()
                 .maximumSize(500)
                 .expireAfterWrite(2, TimeUnit.MINUTES)
@@ -120,6 +124,18 @@ public class CacheConfig {
                         defaults.entryTtl(Duration.ZERO))
                 .withCacheConfiguration(CacheId.PERMISSIONS.getCacheName(),
                         defaults.entryTtl(Duration.ZERO))
+                .withCacheConfiguration(CacheId.USERS.getCacheName(),
+                        defaults.entryTtl(Duration.ofMinutes(10)))
+                .withCacheConfiguration(CacheId.USERS_PAGE.getCacheName(),
+                        defaults.entryTtl(Duration.ofMinutes(5)))
+                .withCacheConfiguration(CacheId.MERCHANTS.getCacheName(),
+                        defaults.entryTtl(Duration.ofMinutes(15)))
+                .withCacheConfiguration(CacheId.MERCHANTS_PAGE.getCacheName(),
+                        defaults.entryTtl(Duration.ofMinutes(5)))
+                .withCacheConfiguration(CacheId.CARDS.getCacheName(),
+                        defaults.entryTtl(Duration.ofMinutes(10)))
+                .withCacheConfiguration(CacheId.ACCOUNTS.getCacheName(),
+                        defaults.entryTtl(Duration.ofMinutes(10)))
                 .build();
     }
 
@@ -129,7 +145,8 @@ public class CacheConfig {
         return new TieredCacheManager(
                 caffeineCacheManager(),
                 redisCacheManager(connectionFactory),
-                CacheId.FRAUD_EVALUATION.getCacheName()   // only fraud-eval gets L1+L2, everything else → Redis only
+                Set.of(CacheId.FRAUD_EVALUATION.getCacheName()),  // tiered: L1+L2
+                Set.of(CacheId.RATE_LIMIT.getCacheName())         // L1-only: Caffeine only
         );
     }
 }

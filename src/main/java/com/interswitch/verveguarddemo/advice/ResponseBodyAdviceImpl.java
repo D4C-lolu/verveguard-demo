@@ -6,6 +6,7 @@ import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.springframework.core.convert.ConversionFailedException;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -112,8 +113,8 @@ public class ResponseBodyAdviceImpl {
         final var errorTraceId = UUID.randomUUID().toString();
         final var uri = request.getRequestURI();
         log.error("Error at {} with id {}", uri, errorTraceId, e);
-        final var apiError = new ApiError(uri, "Account is not accessible", errorTraceId, FORBIDDEN.value(), now());
-        return new ResponseEntity<>(apiError, FORBIDDEN);
+        final var apiError = new ApiError(uri, "Account is not accessible", errorTraceId, UNAUTHORIZED.value(), now());
+        return new ResponseEntity<>(apiError, UNAUTHORIZED);
     }
 
     @ExceptionHandler(UnauthorizedException.class)
@@ -169,13 +170,14 @@ public class ResponseBodyAdviceImpl {
             NoSuchElementException.class,
             NotFoundException.class,
             NoResourceFoundException.class,
+            EmptyResultDataAccessException.class,
     })
     public ResponseEntity<ApiError> handleNotFoundException(Exception e, HttpServletRequest request) {
         final var errorTraceId = UUID.randomUUID().toString();
         final var uri = request.getRequestURI();
         log.error("An error has occurred at {} with id {}", uri, errorTraceId);
         log.error(e.getMessage(), e);
-        return ExceptionHandlerUtils.notFound(e.getMessage(), uri, errorTraceId);
+        return ExceptionHandlerUtils.notFound("Resource not found", uri, errorTraceId);
     }
 
     @ExceptionHandler(Exception.class)

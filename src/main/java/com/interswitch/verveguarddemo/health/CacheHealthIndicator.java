@@ -3,6 +3,7 @@ package com.interswitch.verveguarddemo.health;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.interswitch.verveguarddemo.cache.TieredCache;
+import com.interswitch.verveguarddemo.constants.CacheId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.HealthIndicator;
@@ -31,35 +32,45 @@ public class CacheHealthIndicator implements HealthIndicator {
         details.put("merchantBlacklist.size", blacklistedMerchantCache.estimatedSize());
 
         // Fraud eval cache (Caffeine via CacheManager)
-        boolean fraudEvalHealthy = false;
-        org.springframework.cache.Cache springCache = cacheManager.getCache("fraud-eval");
-        if (springCache != null) {
-            com.github.benmanes.caffeine.cache.Cache<?, ?> nativeCache =
-                    (com.github.benmanes.caffeine.cache.Cache<?, ?>) springCache.getNativeCache();
-            // getNativeCache() on TieredCache returns `this`, so unwrap L1
-            if (nativeCache instanceof TieredCache tiered) {
-                nativeCache = (com.github.benmanes.caffeine.cache.Cache<?, ?>)
-                        ((org.springframework.cache.caffeine.CaffeineCache) tiered.getL1()).getNativeCache();
-            }
-            CacheStats fraudStats = nativeCache.stats();
-            details.put("fraudEval.hitRate", String.format("%.2f%%", fraudStats.hitRate() * 100));
-            details.put("fraudEval.hitCount", fraudStats.hitCount());
-            details.put("fraudEval.missCount", fraudStats.missCount());
-            details.put("fraudEval.size", nativeCache.estimatedSize());
-            fraudEvalHealthy = fraudStats.hitRate() >= 0.5 || fraudStats.requestCount() == 0;
-        } else {
-            details.put("fraudEval", "unavailable");
-        }
+        boolean fraudEvalHealthy = addCaffeineStats(details, CacheId.FRAUD_EVALUATION.getCacheName(), "fraudEval");
+
+        // Rate limit cache
+        boolean rateLimitHealthy = addCaffeineStats(details, CacheId.RATE_LIMIT.getCacheName(), "rateLimit");
 
         boolean merchantHealthy = merchantStats.hitRate() >= 0.5 || merchantStats.requestCount() == 0;
 
-        if (merchantHealthy && fraudEvalHealthy) {
+        if (merchantHealthy && fraudEvalHealthy && rateLimitHealthy) {
             return Health.up().withDetails(details).build();
         }
 
         if (!merchantHealthy) details.put("merchantBlacklist.reason", "Hit rate below 50%");
         if (!fraudEvalHealthy) details.put("fraudEval.reason", "Hit rate below 50%");
+        if (!rateLimitHealthy) details.put("rateLimit.reason", "Hit rate below 50%");
 
         return Health.down().withDetails(details).build();
+    }
+
+    private boolean addCaffeineStats(Map<String, Object> details, String cacheName, String prefix) {
+        org.springframework.cache.Cache springCache = cacheManager.getCache(cacheName);
+        if (springCache == null) {
+            details.put(prefix, "unavailable");
+            return true; // Don't fail health check if cache is missing
+        }
+
+        com.github.benmanes.caffeine.cache.Cache<?, ?> nativeCache =
+                (com.github.benmanes.caffeine.cache.Cache<?, ?>) springCache.getNativeCache();
+        // getNativeCache() on TieredCache returns `this`, so unwrap L1
+        if (nativeCache instanceof TieredCache tiered) {
+            nativeCache = (com.github.benmanes.caffeine.cache.Cache<?, ?>)
+                    ((org.springframework.cache.caffeine.CaffeineCache) tiered.getL1()).getNativeCache();
+        }
+
+        CacheStats stats = nativeCache.stats();
+        details.put(prefix + ".hitRate", String.format("%.2f%%", stats.hitRate() * 100));
+        details.put(prefix + ".hitCount", stats.hitCount());
+        details.put(prefix + ".missCount", stats.missCount());
+        details.put(prefix + ".size", nativeCache.estimatedSize());
+
+        return stats.hitRate() >= 0.5 || stats.requestCount() == 0;
     }
 }

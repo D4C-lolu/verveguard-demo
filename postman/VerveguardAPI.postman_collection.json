@@ -1,0 +1,1556 @@
+{
+  "info": {
+    "_postman_id": "verveguard-api-v1",
+    "name": "VerveguardAPI",
+    "description": "Verveguard Fraud Detection API - Complete collection based on controller integration tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Authentication endpoints",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has tokens', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.accessToken).to.be.a('string');",
+                  "    pm.expect(jsonData.data.refreshToken).to.be.a('string');",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data) {",
+                  "    pm.collectionVariables.set('accessToken', jsonData.data.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{email}}\",\n    \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login with email and password. Tokens are automatically saved to collection variables."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data) {",
+                  "    pm.collectionVariables.set('accessToken', jsonData.data.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Refresh-Token",
+                "value": "{{refreshToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Refresh access token using refresh token"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "User management endpoints",
+      "item": [
+        {
+          "name": "Create User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has user data', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.id).to.be.a('number');",
+                  "    pm.expect(jsonData.data.email).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"firstname\": \"New\",\n    \"lastname\": \"User\",\n    \"email\": \"newuser@test.com\",\n    \"phone\": \"09000000001\",\n    \"password\": \"Password123!\",\n    \"roleId\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            },
+            "description": "Create a new user (requires SUPER_ADMIN)"
+          },
+          "response": []
+        },
+        {
+          "name": "List Users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is paginated', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.content).to.be.an('array');",
+                  "    pm.expect(jsonData.data.page.totalElements).to.be.a('number');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/users?page=1&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "List all users with pagination"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has user email', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.email).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            },
+            "description": "Get current authenticated user's profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/users/:userId",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", ":userId"],
+              "variable": [
+                { "key": "userId", "value": "1" }
+              ]
+            },
+            "description": "Get user by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Change User Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204', function() {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/users/:userId/status?status=ACTIVE",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", ":userId", "status"],
+              "query": [
+                { "key": "status", "value": "ACTIVE", "description": "ACTIVE or INACTIVE" }
+              ],
+              "variable": [
+                { "key": "userId", "value": "1" }
+              ]
+            },
+            "description": "Change user status (ACTIVE/INACTIVE)"
+          },
+          "response": []
+        },
+        {
+          "name": "Change User Role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204', function() {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/users/:userId/role?roleId=2",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", ":userId", "role"],
+              "query": [
+                { "key": "roleId", "value": "2" }
+              ],
+              "variable": [
+                { "key": "userId", "value": "1" }
+              ]
+            },
+            "description": "Change user role"
+          },
+          "response": []
+        },
+        {
+          "name": "Change Own Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204', function() {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"currentPassword\": \"Admin123!\",\n    \"newPassword\": \"NewPassword123!\",\n    \"confirmPassword\": \"NewPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/me/password",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me", "password"]
+            },
+            "description": "Change own password"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204', function() {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/users/:userId",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", ":userId"],
+              "variable": [
+                { "key": "userId", "value": "1" }
+              ]
+            },
+            "description": "Delete user (requires SUPER_ADMIN)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Merchants",
+      "description": "Merchant management endpoints",
+      "item": [
+        {
+          "name": "Create Merchant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has merchant data', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.id).to.be.a('number');",
+                  "    pm.expect(jsonData.data.email).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"firstname\": \"New\",\n    \"lastname\": \"Merchant\",\n    \"email\": \"newmerchant@test.com\",\n    \"phone\": \"08100000001\",\n    \"password\": \"Password123!\",\n    \"roleId\": 3,\n    \"businessAddress\": \"123 Test Street\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/merchants",
+              "host": ["{{baseUrl}}"],
+              "path": ["merchants"]
+            },
+            "description": "Create a new merchant"
+          },
+          "response": []
+        },
+        {
+          "name": "List Merchants",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is paginated', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.content).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/merchants?page=1&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["merchants"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "List all merchants with pagination"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current Merchant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has email', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.email).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/merchants/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["merchants", "me"]
+            },
+            "description": "Get current merchant's profile (requires MERCHANT role)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Merchant by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/merchants/:merchantId",
+              "host": ["{{baseUrl}}"],
+              "path": ["merchants", ":merchantId"],
+              "variable": [
+                { "key": "merchantId", "value": "1" }
+              ]
+            },
+            "description": "Get merchant by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Filter by Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/merchants/status?status=ACTIVE&page=1&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["merchants", "status"],
+              "query": [
+                { "key": "status", "value": "ACTIVE" },
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "Filter merchants by status"
+          },
+          "response": []
+        },
+        {
+          "name": "Filter by KYC Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/merchants/kyc-status?kycStatus=APPROVED&page=1&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["merchants", "kyc-status"],
+              "query": [
+                { "key": "kycStatus", "value": "APPROVED" },
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "Filter merchants by KYC status"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Merchant Status",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/merchants/:merchantId/status?status=ACTIVE",
+              "host": ["{{baseUrl}}"],
+              "path": ["merchants", ":merchantId", "status"],
+              "query": [
+                { "key": "status", "value": "ACTIVE" }
+              ],
+              "variable": [
+                { "key": "merchantId", "value": "1" }
+              ]
+            },
+            "description": "Update merchant status"
+          },
+          "response": []
+        },
+        {
+          "name": "Update KYC Status",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/merchants/:merchantId/kyc?kycStatus=APPROVED",
+              "host": ["{{baseUrl}}"],
+              "path": ["merchants", ":merchantId", "kyc"],
+              "query": [
+                { "key": "kycStatus", "value": "APPROVED" }
+              ],
+              "variable": [
+                { "key": "merchantId", "value": "1" }
+              ]
+            },
+            "description": "Update merchant KYC status"
+          },
+          "response": []
+        },
+        {
+          "name": "Change Merchant Password",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"currentPassword\": \"Admin123!\",\n    \"newPassword\": \"NewPassword123!\",\n    \"confirmPassword\": \"NewPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/merchants/:merchantId/password",
+              "host": ["{{baseUrl}}"],
+              "path": ["merchants", ":merchantId", "password"],
+              "variable": [
+                { "key": "merchantId", "value": "1" }
+              ]
+            },
+            "description": "Change merchant password (admin only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Upgrade Merchant Tier",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/merchants/:merchantId/tier/upgrade",
+              "host": ["{{baseUrl}}"],
+              "path": ["merchants", ":merchantId", "tier", "upgrade"],
+              "variable": [
+                { "key": "merchantId", "value": "1" }
+              ]
+            },
+            "description": "Upgrade merchant tier"
+          },
+          "response": []
+        },
+        {
+          "name": "Blacklist Merchant",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/merchants/:merchantId/blacklist?reason=Fraudulent%20activity",
+              "host": ["{{baseUrl}}"],
+              "path": ["merchants", ":merchantId", "blacklist"],
+              "query": [
+                { "key": "reason", "value": "Fraudulent activity" }
+              ],
+              "variable": [
+                { "key": "merchantId", "value": "1" }
+              ]
+            },
+            "description": "Blacklist a merchant"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Merchant",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/merchants/:merchantId",
+              "host": ["{{baseUrl}}"],
+              "path": ["merchants", ":merchantId"],
+              "variable": [
+                { "key": "merchantId", "value": "1" }
+              ]
+            },
+            "description": "Delete merchant (requires SUPER_ADMIN)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cards",
+      "description": "Card management endpoints",
+      "item": [
+        {
+          "name": "Create Card",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has card data', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.cardNumber).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"cardNumber\": \"5500000000000004\",\n    \"cardType\": \"VIRTUAL\",\n    \"cardScheme\": \"MASTERCARD\",\n    \"expiryMonth\": 12,\n    \"expiryYear\": 2028\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cards/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["cards", "me"]
+            },
+            "description": "Create a card for current merchant (requires MERCHANT role)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Own Card",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has card data', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.cardNumber).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/cards/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["cards", "me"]
+            },
+            "description": "Get own card (requires MERCHANT role)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Card by Number",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/cards/:cardNumber",
+              "host": ["{{baseUrl}}"],
+              "path": ["cards", ":cardNumber"],
+              "variable": [
+                { "key": "cardNumber", "value": "4011111111111111" }
+              ]
+            },
+            "description": "Get card by number (requires ADMIN)"
+          },
+          "response": []
+        },
+        {
+          "name": "List Cards",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is paginated', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.content).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/cards?page=1&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["cards"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "List all cards (requires ADMIN)"
+          },
+          "response": []
+        },
+        {
+          "name": "Block Own Card",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204', function() {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/cards/me/block",
+              "host": ["{{baseUrl}}"],
+              "path": ["cards", "me", "block"]
+            },
+            "description": "Block own card (requires MERCHANT role)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Accounts",
+      "description": "Account management endpoints",
+      "item": [
+        {
+          "name": "Get Own Account",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has account data', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.accountNumber).to.be.a('string');",
+                  "    pm.expect(jsonData.data.currency).to.equal('NGN');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/accounts/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["accounts", "me"]
+            },
+            "description": "Get own account (requires MERCHANT role)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Account by Card Number",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/accounts/card/:cardNumber",
+              "host": ["{{baseUrl}}"],
+              "path": ["accounts", "card", ":cardNumber"],
+              "variable": [
+                { "key": "cardNumber", "value": "4011111111111111" }
+              ]
+            },
+            "description": "Get account by card number (requires ADMIN)"
+          },
+          "response": []
+        },
+        {
+          "name": "List Accounts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is paginated', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.content).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/accounts?page=1&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["accounts"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "List all accounts (requires ADMIN)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Roles",
+      "description": "Role management endpoints",
+      "item": [
+        {
+          "name": "Create Role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has role data', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.name).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"TEST_ROLE\",\n    \"principalType\": \"ADMIN\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["roles"]
+            },
+            "description": "Create a new role (requires SUPER_ADMIN)"
+          },
+          "response": []
+        },
+        {
+          "name": "List Roles",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is paginated', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.content).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/roles?page=1&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["roles"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "List roles with pagination"
+          },
+          "response": []
+        },
+        {
+          "name": "List All Roles",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is array', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/roles/all",
+              "host": ["{{baseUrl}}"],
+              "path": ["roles", "all"]
+            },
+            "description": "List all roles without pagination"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Role by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/roles/:roleId",
+              "host": ["{{baseUrl}}"],
+              "path": ["roles", ":roleId"],
+              "variable": [
+                { "key": "roleId", "value": "1" }
+              ]
+            },
+            "description": "Get role by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Assign Permission",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204', function() {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/roles/:roleId/permissions/:permissionId",
+              "host": ["{{baseUrl}}"],
+              "path": ["roles", ":roleId", "permissions", ":permissionId"],
+              "variable": [
+                { "key": "roleId", "value": "1" },
+                { "key": "permissionId", "value": "1" }
+              ]
+            },
+            "description": "Assign single permission to role"
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk Assign Permissions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204', function() {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"permissionIds\": [1, 2, 3]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/roles/:roleId/permissions",
+              "host": ["{{baseUrl}}"],
+              "path": ["roles", ":roleId", "permissions"],
+              "variable": [
+                { "key": "roleId", "value": "1" }
+              ]
+            },
+            "description": "Bulk assign permissions to role"
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke Permission",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204', function() {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/roles/:roleId/permissions/:permissionId",
+              "host": ["{{baseUrl}}"],
+              "path": ["roles", ":roleId", "permissions", ":permissionId"],
+              "variable": [
+                { "key": "roleId", "value": "1" },
+                { "key": "permissionId", "value": "1" }
+              ]
+            },
+            "description": "Revoke single permission from role"
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk Revoke Permissions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204', function() {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"permissionIds\": [1, 2]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/roles/:roleId/permissions",
+              "host": ["{{baseUrl}}"],
+              "path": ["roles", ":roleId", "permissions"],
+              "variable": [
+                { "key": "roleId", "value": "1" }
+              ]
+            },
+            "description": "Bulk revoke permissions from role"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Permissions",
+      "description": "Permission management endpoints",
+      "item": [
+        {
+          "name": "Create Permission",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has permission data', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.name).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"test:permission\",\n    \"description\": \"Test permission\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/permissions",
+              "host": ["{{baseUrl}}"],
+              "path": ["permissions"]
+            },
+            "description": "Create a new permission (requires SUPER_ADMIN)"
+          },
+          "response": []
+        },
+        {
+          "name": "List Permissions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is array', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/permissions",
+              "host": ["{{baseUrl}}"],
+              "path": ["permissions"]
+            },
+            "description": "List all permissions"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Permission by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/permissions/:permissionId",
+              "host": ["{{baseUrl}}"],
+              "path": ["permissions", ":permissionId"],
+              "variable": [
+                { "key": "permissionId", "value": "1" }
+              ]
+            },
+            "description": "Get permission by ID"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Tier Config",
+      "description": "Tier configuration endpoints",
+      "item": [
+        {
+          "name": "List Tier Configs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is array', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tier-configs",
+              "host": ["{{baseUrl}}"],
+              "path": ["tier-configs"]
+            },
+            "description": "List all tier configurations"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Tier Config by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tier-configs/:tierConfigId",
+              "host": ["{{baseUrl}}"],
+              "path": ["tier-configs", ":tierConfigId"],
+              "variable": [
+                { "key": "tierConfigId", "value": "1" }
+              ]
+            },
+            "description": "Get tier config by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Tier Config by Name",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has tier data', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.tier).to.equal('TIER_1');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tier-configs/tier/:tier",
+              "host": ["{{baseUrl}}"],
+              "path": ["tier-configs", "tier", ":tier"],
+              "variable": [
+                { "key": "tier", "value": "TIER_1" }
+              ]
+            },
+            "description": "Get tier config by tier name (TIER_1, TIER_2, TIER_3)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Tier Config",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"dailyTransactionLimit\": 150000.00,\n    \"singleTransactionLimit\": 15000.00,\n    \"monthlyTransactionLimit\": 1500000.00\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tier-configs/:tier",
+              "host": ["{{baseUrl}}"],
+              "path": ["tier-configs", ":tier"],
+              "variable": [
+                { "key": "tier", "value": "TIER_1" }
+              ]
+            },
+            "description": "Update tier configuration (requires SUPER_ADMIN)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Fraud",
+      "description": "Fraud detection endpoints",
+      "item": [
+        {
+          "name": "Evaluate Transaction",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has fraud status', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(['CLEAN', 'SUSPICIOUS', 'BLOCKED']).to.include(jsonData.data);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Forwarded-For",
+                "value": "{{clientIp}}",
+                "description": "Client IP for fraud evaluation"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"amount\": 500.00,\n    \"currency\": \"NGN\",\n    \"cardNumber\": \"4011111111111111\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/fraud/evaluate",
+              "host": ["{{baseUrl}}"],
+              "path": ["fraud", "evaluate"]
+            },
+            "description": "Evaluate transaction for fraud (requires MERCHANT role)"
+          },
+          "response": []
+        },
+        {
+          "name": "Evaluate for Merchant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has fraud status', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(['CLEAN', 'SUSPICIOUS', 'BLOCKED']).to.include(jsonData.data);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Forwarded-For",
+                "value": "{{clientIp}}",
+                "description": "Client IP for fraud evaluation"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"amount\": 500.00,\n    \"currency\": \"NGN\",\n    \"cardNumber\": \"4011111111111111\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/fraud/evaluate/:merchantId",
+              "host": ["{{baseUrl}}"],
+              "path": ["fraud", "evaluate", ":merchantId"],
+              "variable": [
+                { "key": "merchantId", "value": "1" }
+              ]
+            },
+            "description": "Evaluate transaction for specific merchant (requires ADMIN)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Fraud Attempts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is paginated', function() {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.content).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/fraud/attempts?page=1&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["fraud", "attempts"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "Get paginated fraud attempts (requires SUPER_ADMIN)"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

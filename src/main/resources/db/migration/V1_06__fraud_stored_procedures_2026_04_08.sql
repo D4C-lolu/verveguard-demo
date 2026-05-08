@@ -11,15 +11,15 @@ OR REPLACE FUNCTION sp_fraud_get_evaluation_data(
 BEGIN
 RETURN QUERY
 SELECT (c.card_status = 'BLOCKED')         AS is_card_blocked,
-       EXISTS (SELECT 1
-               FROM merchant_blacklist mb
-               WHERE mb.merchant_id = c.merchant_id
-                 AND mb.lifted_at IS NULL) AS is_merchant_blacklisted,
-       tc.single_transaction_limit         AS transaction_limit,
-       c.merchant_id                       AS merchant_id
+	   EXISTS (SELECT 1
+			   FROM merchant_blacklist mb
+			   WHERE mb.merchant_id = c.merchant_id
+				 AND mb.lifted_at IS NULL) AS is_merchant_blacklisted,
+	   tc.single_transaction_limit         AS transaction_limit,
+	   c.merchant_id                       AS merchant_id
 FROM cards c
-         JOIN merchants m ON m.id = c.merchant_id
-         JOIN tier_configs tc ON tc.tier = m.tier
+		 JOIN merchants m ON m.id = c.merchant_id
+		 JOIN tier_configs tc ON tc.tier = m.tier
 WHERE c.card_hash = p_card_hash LIMIT 1;
 END;
 $$;
@@ -65,10 +65,10 @@ OR REPLACE FUNCTION sp_fraud_is_blacklisted_by_card_number(p_card_number text)
 RETURNS boolean LANGUAGE plpgsql AS $$
 BEGIN
 RETURN EXISTS (SELECT 1
-               FROM cards c
-                        JOIN merchant_blacklist mb ON mb.merchant_id = c.merchant_id
-               WHERE c.card_hash = encode(digest(p_card_number, 'sha256'), 'hex')
-                 AND mb.lifted_at IS NULL);
+			   FROM cards c
+						JOIN merchant_blacklist mb ON mb.merchant_id = c.merchant_id
+			   WHERE c.card_hash = encode(digest(p_card_number, 'sha256'), 'hex')
+				 AND mb.lifted_at IS NULL);
 END;
 $$;
 
@@ -82,8 +82,8 @@ BEGIN
 SELECT tc.single_transaction_limit
 INTO v_limit
 FROM cards c
-         JOIN merchants m ON m.id = c.merchant_id
-         JOIN tier_configs tc ON tc.tier = m.tier
+		 JOIN merchants m ON m.id = c.merchant_id
+		 JOIN tier_configs tc ON tc.tier = m.tier
 WHERE c.card_hash = encode(digest(p_card_number, 'sha256'), 'hex');
 RETURN v_limit;
 END;
@@ -113,22 +113,13 @@ OR REPLACE FUNCTION sp_fraud_get_attempts(
 BEGIN
 RETURN QUERY
 SELECT fa.id,
-       fa.card_hash,
-       fa.merchant_id,
-       m.firstname,
-       m.lastname,
-       m.othername,
-       m.email,
-       m.phone,
-       fa.ip_address,
-       fa.amount,
-       fa.currency,
-       fa.status,
-       fa.flags,
-       fa.created_at,
-       COUNT(*) OVER () AS total_count
+	   fa.card_hash::text, fa.merchant_id,
+	   m.firstname::text, m.lastname::text, m.othername::text, m.email::text, m.phone::text, fa.ip_address::text, fa.amount,
+	   fa.currency::text, fa.status::text, fa.flags,
+	   fa.created_at,
+	   COUNT(*) OVER () AS total_count
 FROM fraud_attempts fa
-         JOIN merchants m ON m.id = fa.merchant_id
+		 JOIN merchants m ON m.id = fa.merchant_id
 ORDER BY fa.created_at DESC LIMIT p_limit
 OFFSET p_offset;
 END;

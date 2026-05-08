@@ -11,6 +11,7 @@ import com.interswitch.verveguarddemo.models.projections.CardValidationResult;
 import com.interswitch.verveguarddemo.models.request.CreateCardRequest;
 import com.interswitch.verveguarddemo.models.response.CardResponse;
 import com.interswitch.verveguarddemo.util.SecurityUtil;
+import com.interswitch.verveguarddemo.constants.CacheId;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.cache.annotation.CacheEvict;
@@ -66,20 +67,20 @@ public class CardService {
                 .orElseThrow(() -> new NotFoundException("Card not found"));
     }
 
-    @Cacheable(value = "card", key = "'merchant:' + T(com.interswitch.verveguarddemo.util.SecurityUtil).getCurrentUserId()")
+    @Cacheable(value = CacheId.Names.CARD, key = "'merchant:' + T(com.interswitch.verveguarddemo.util.SecurityUtil).getCurrentUserId()")
     public CardResponse getMyCard() {
         Long merchantId = SecurityUtil.getCurrentUserId();
         return cardDao.findByMerchantId(merchantId)
                 .orElseThrow(() -> new NotFoundException("Card not found"));
     }
 
-    @Cacheable(value = "card", key = "'number:' + #cardNumber")
+    @Cacheable(value = CacheId.Names.CARD, key = "'number:' + #cardNumber")
     public CardResponse getCardByNumber(String cardNumber) {
         return cardDao.findByCardNumber(cardNumber)
                 .orElseThrow(() -> new NotFoundException("Card not found"));
     }
 
-    @Cacheable(value = "cards", key = "'all:' + #page + ':' + #size + ':' + #sortField + ':' + #direction")
+    @Cacheable(value = CacheId.Names.CARDS, key = "'all:' + #page + ':' + #size + ':' + #sortField + ':' + #direction")
     public Page<CardResponse> getAllCards(int page, int size, String sortField, Sort.Direction direction) {
         if (!ALLOWED_SORT_FIELDS.contains(sortField))
             throw new BadRequestException("Invalid sort field: " + sortField);
@@ -88,7 +89,7 @@ public class CardService {
     }
 
     @Transactional
-    @CacheEvict(value = "card", key = "'merchant:' + T(com.interswitch.verveguarddemo.util.SecurityUtil).getCurrentUserId()")
+    @CacheEvict(value = CacheId.Names.CARD, key = "'merchant:' + T(com.interswitch.verveguarddemo.util.SecurityUtil).getCurrentUserId()")
     public void blockMyCard() {
         Long merchantId = SecurityUtil.getCurrentUserId();
         CardResponse card = cardDao.findByMerchantId(merchantId)
@@ -111,7 +112,7 @@ public class CardService {
             throw new BadRequestException("Card expiry date is in the past");
     }
 
-    private String maskCardNumber(String cardNumber) {
+    public String maskCardNumber(String cardNumber) {
         return cardNumber.substring(0, 4) +
                 "*".repeat(cardNumber.length() - 8) +
                 cardNumber.substring(cardNumber.length() - 4);

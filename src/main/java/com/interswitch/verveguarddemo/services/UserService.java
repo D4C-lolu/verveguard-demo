@@ -13,6 +13,7 @@ import com.interswitch.verveguarddemo.repositories.RoleRepository;
 import com.interswitch.verveguarddemo.repositories.UserRepository;
 import com.interswitch.verveguarddemo.util.SecurityUtil;
 import com.interswitch.verveguarddemo.util.ValidationUtil;
+import com.interswitch.verveguarddemo.constants.CacheId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -37,8 +38,8 @@ public class UserService {
 
     @Transactional
     @Caching(evict = {
-            @CacheEvict(value = "users", key = "#result.id"),
-            @CacheEvict(value = "users-page", allEntries = true)
+            @CacheEvict(value = CacheId.Names.USERS, key = "#result.id"),
+            @CacheEvict(value = CacheId.Names.USERS_PAGE, allEntries = true)
     })
     public UserResponse createUser(CreateUserRequest request) {
         List<Map<String, Object>> conflicts = userRepository.validateForCreate(request.email(), request.phone(), request.roleId());
@@ -74,26 +75,26 @@ public class UserService {
                 .build();
     }
 
-    @Cacheable(value = "users", key = "#id")
+    @Cacheable(value = CacheId.Names.USERS, key = "#id")
     public UserResponse getUserById(Long id) {
         return userRepository.findUserById(id)
                 .orElseThrow(() -> new NotFoundException("User not found"));
     }
 
-    @Cacheable(value = "users", key = "T(com.interswitch.verveguarddemo.util.SecurityUtil).getCurrentUserId()")
+    @Cacheable(value = CacheId.Names.USERS, key = "T(com.interswitch.verveguarddemo.util.SecurityUtil).getCurrentUserId()")
     public UserResponse getCurrentUser() {
         return getUserById(SecurityUtil.getCurrentUserId());
     }
 
-    @Cacheable(value = "users-page", key = "#page + '-' + #size + '-' + #sortField + '-' + #direction")
+    @Cacheable(value = CacheId.Names.USERS_PAGE, key = "#page + '-' + #size + '-' + #sortField + '-' + #direction")
     public Page<UserResponse> getAllUsers(int page, int size, String sortField, Sort.Direction direction) {
         return userRepository.findAllUsers(PageRequest.of(page - 1, size, Sort.by(direction, sortField)));
     }
 
     @Transactional
     @Caching(evict = {
-            @CacheEvict(value = "users", key = "#id"),
-            @CacheEvict(value = "users-page", allEntries = true)
+            @CacheEvict(value = CacheId.Names.USERS, key = "#id"),
+            @CacheEvict(value = CacheId.Names.USERS_PAGE, allEntries = true)
     })
     public void changeUserStatus(Long id, UserStatus status) {
         userRepository.updateStatus(id, status, SecurityUtil.getCurrentUserId());
@@ -101,8 +102,8 @@ public class UserService {
 
     @Transactional
     @Caching(evict = {
-            @CacheEvict(value = "users", key = "#id"),
-            @CacheEvict(value = "users-page", allEntries = true)
+            @CacheEvict(value = CacheId.Names.USERS, key = "#id"),
+            @CacheEvict(value = CacheId.Names.USERS_PAGE, allEntries = true)
     })
     public void changeUserRole(Long id, Long roleId) {
         if (!roleRepository.existsByIdAndPrincipalType(roleId, PrincipalType.ADMIN)) {
@@ -112,7 +113,7 @@ public class UserService {
     }
 
     @Transactional
-    @CacheEvict(value = "users", key = "#id")
+    @CacheEvict(value = CacheId.Names.USERS, key = "#id")
     public void changePassword(Long id, ChangePasswordRequest request) {
         String currentHash = userRepository.findPasswordHashById(id);
         if (currentHash == null || !passwordEncoder.matches(request.currentPassword(), currentHash)) {
@@ -123,8 +124,8 @@ public class UserService {
 
     @Transactional
     @Caching(evict = {
-            @CacheEvict(value = "users", key = "#id"),
-            @CacheEvict(value = "users-page", allEntries = true)
+            @CacheEvict(value = CacheId.Names.USERS, key = "#id"),
+            @CacheEvict(value = CacheId.Names.USERS_PAGE, allEntries = true)
     })
     public void deleteUser(Long id) {
         userRepository.softDelete(id, SecurityUtil.getCurrentUserId());

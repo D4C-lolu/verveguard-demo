@@ -9,14 +9,14 @@ BEGIN
     -- Suspend the merchant
 UPDATE merchants
 SET merchant_status = 'SUSPENDED',
-    updated_at      = now(),
-    updated_by      = p_blacklisted_by
+	updated_at      = now(),
+	updated_by      = p_blacklisted_by
 WHERE id = p_merchant_id;
 
 -- Block the merchant's card
 UPDATE cards
 SET card_status = 'BLOCKED',
-    updated_at  = now()
+	updated_at  = now()
 WHERE merchant_id = p_merchant_id;
 
 -- Insert blacklist record
@@ -35,7 +35,7 @@ v_rows_affected int;
 BEGIN
 UPDATE cards
 SET card_status = 'BLOCKED',
-    updated_at  = now()
+	updated_at  = now()
 WHERE card_hash = p_card_hash
   AND card_status != 'BLOCKED';
 
@@ -51,9 +51,9 @@ LANGUAGE plpgsql AS $$
 BEGIN
 RETURN QUERY
 SELECT m.email,
-       m.firstname || ' ' || m.lastname
+	   m.firstname || ' ' || m.lastname
 FROM merchants m
-         JOIN cards c ON c.merchant_id = m.id
+		 JOIN cards c ON c.merchant_id = m.id
 WHERE c.card_hash = p_card_hash
   AND m.deleted_at IS NULL LIMIT 1;
 END;

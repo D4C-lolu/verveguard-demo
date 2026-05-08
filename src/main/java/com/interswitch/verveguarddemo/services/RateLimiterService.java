@@ -1,19 +1,20 @@
 package com.interswitch.verveguarddemo.services;
 
 import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
+import com.interswitch.verveguarddemo.constants.CacheId;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
+import lombok.RequiredArgsConstructor;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 @Service
+@RequiredArgsConstructor
 public class RateLimiterService {
 
-    //TODO: make configurable
     private static final int MAX_REQUESTS = 5;
     private static final int WINDOW_MINUTES = 1;
     private static final Set<String> BYPASS_IPS = Set.of(
@@ -22,25 +23,27 @@ public class RateLimiterService {
             "::1",
             "localhost"
     );
-    private final Cache<String, Bucket> buckets;
 
-    public RateLimiterService() {
-        this.buckets = Caffeine.newBuilder()
-                .expireAfterAccess(2, TimeUnit.MINUTES)
-                .build();
+    private final CacheManager cacheManager;
+
+    @SuppressWarnings("unchecked")
+    private Cache<String, Bucket> getBuckets() {
+        var springCache = cacheManager.getCache(CacheId.RATE_LIMIT.getCacheName());
+        if (springCache == null) {
+            throw new IllegalStateException("Rate limit cache not configured");
+        }
+        return (Cache<String, Bucket>) springCache.getNativeCache();
     }
 
     public boolean isRateLimited(String ip) {
         if (ip == null || BYPASS_IPS.contains(ip) || isDockerNetwork(ip)) {
             return false;
         }
-        Bucket bucket = buckets.get(ip, _ -> buildBucket());
+        Bucket bucket = getBuckets().get(ip, _ -> buildBucket());
         return !bucket.tryConsume(1);
     }
 
     private boolean isDockerNetwork(String ip) {
-        // Docker bridge networks: 172.16.0.0 - 172.31.255.255
-        // Also common: 10.x.x.x, 192.168.x.x (private networks)
         if (ip.startsWith("10.") || ip.startsWith("192.168.")) return true;
         if (ip.startsWith("172.")) {
             String[] parts = ip.split("\\.");

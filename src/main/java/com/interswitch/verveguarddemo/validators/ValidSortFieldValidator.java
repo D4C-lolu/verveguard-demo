@@ -6,8 +6,8 @@ import jakarta.validation.ConstraintValidatorContext;
 
 import java.lang.reflect.Field;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public class ValidSortFieldValidator implements ConstraintValidator<ValidSortField, String> {
 
@@ -15,9 +15,15 @@ public class ValidSortFieldValidator implements ConstraintValidator<ValidSortFie
 
     @Override
     public void initialize(ValidSortField annotation) {
-        allowedFields = Arrays.stream(annotation.target().getDeclaredFields())
-                .map(Field::getName)
-                .collect(Collectors.toSet());
+        allowedFields = new HashSet<>();
+        Class<?> clazz = annotation.target();
+
+        while (clazz != null && clazz != Object.class) {
+            Arrays.stream(clazz.getDeclaredFields())
+                    .map(Field::getName)
+                    .forEach(allowedFields::add);
+            clazz = clazz.getSuperclass();
+        }
     }
 
     @Override

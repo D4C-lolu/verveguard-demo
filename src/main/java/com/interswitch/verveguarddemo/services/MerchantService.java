@@ -14,6 +14,7 @@ import com.interswitch.verveguarddemo.models.response.MerchantResponse;
 import com.interswitch.verveguarddemo.repositories.MerchantRepository;
 import com.interswitch.verveguarddemo.util.SecurityUtil;
 import com.interswitch.verveguarddemo.util.ValidationUtil;
+import com.interswitch.verveguarddemo.constants.CacheId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -37,7 +38,7 @@ public class MerchantService {
     private final BlacklistDao blacklistDao;
 
     @Transactional
-    @CacheEvict(value = "merchants-page", allEntries = true)
+    @CacheEvict(value = CacheId.Names.MERCHANTS_PAGE, allEntries = true)
     public MerchantResponse createMerchant(CreateMerchantRequest request) {
         List<Map<String, Object>> conflicts = merchantRepository.validateForCreate(request.email(), request.phone(), request.roleId());
         ValidationUtil.checkConflicts(conflicts);
@@ -77,24 +78,24 @@ public class MerchantService {
                 .build();
     }
 
-    @Cacheable(value = "merchants", key = "#id")
+    @Cacheable(value = CacheId.Names.MERCHANTS, key = "#id")
     public MerchantResponse getMerchantById(Long id) {
         return merchantRepository.findMerchantById(id)
                 .orElseThrow(() -> new NotFoundException("Merchant not found"));
     }
 
-    @Cacheable(value = "merchants-page", key = "#status + '-' + #page + '-' + #size + '-' + #sort + '-' + #dir")
+    @Cacheable(value = CacheId.Names.MERCHANTS_PAGE, key = "#status + '-' + #page + '-' + #size + '-' + #sort + '-' + #dir")
     public Page<MerchantResponse> getMerchantsByStatus(MerchantStatus status, int page, int size, String sort, Sort.Direction dir) {
         return merchantRepository.findByMerchantStatus(status, PageRequest.of(page - 1, size, Sort.by(dir, sort)));
     }
 
-    @Cacheable(value = "merchants-page", key = "#status + '-' + #page + '-' + #size + '-' + #sort + '-' + #dir")
+    @Cacheable(value = CacheId.Names.MERCHANTS_PAGE, key = "#status + '-' + #page + '-' + #size + '-' + #sort + '-' + #dir")
     public Page<MerchantResponse> getMerchantsByKycStatus(KycStatus status, int page, int size, String sort, Sort.Direction dir) {
         return merchantRepository.findByKycStatus(status, PageRequest.of(page - 1, size, Sort.by(dir, sort)));
     }
 
     @Transactional
-    @CacheEvict(value = "merchants", key = "#id")
+    @CacheEvict(value = CacheId.Names.MERCHANTS, key = "#id")
     public void updatePassword(Long id, ChangePasswordRequest request) {
         String currentHash = merchantRepository.findPasswordHashById(id);
         if (currentHash == null || !passwordEncoder.matches(request.currentPassword(), currentHash)) {
@@ -105,8 +106,8 @@ public class MerchantService {
 
     @Transactional
     @Caching(evict = {
-            @CacheEvict(value = "merchants", key = "#id"),
-            @CacheEvict(value = "merchants-page", allEntries = true)
+            @CacheEvict(value = CacheId.Names.MERCHANTS, key = "#id"),
+            @CacheEvict(value = CacheId.Names.MERCHANTS_PAGE, allEntries = true)
     })
     public void updateKycStatus(Long id, KycStatus kycStatus) {
         merchantRepository.updateKycStatus(id, kycStatus, SecurityUtil.getCurrentUserId());
@@ -114,8 +115,8 @@ public class MerchantService {
 
     @Transactional
     @Caching(evict = {
-            @CacheEvict(value = "merchants", key = "#id"),
-            @CacheEvict(value = "merchants-page", allEntries = true)
+            @CacheEvict(value = CacheId.Names.MERCHANTS, key = "#id"),
+            @CacheEvict(value = CacheId.Names.MERCHANTS_PAGE, allEntries = true)
     })
     public void blacklistMerchant(Long id, String reason) {
         blacklistDao.blacklistMerchant(id, reason, SecurityUtil.getCurrentUserId());
@@ -124,8 +125,8 @@ public class MerchantService {
 
     @Transactional
     @Caching(evict = {
-            @CacheEvict(value = "merchants", key = "#id"),
-            @CacheEvict(value = "merchants-page", allEntries = true)
+            @CacheEvict(value = CacheId.Names.MERCHANTS, key = "#id"),
+            @CacheEvict(value = CacheId.Names.MERCHANTS_PAGE, allEntries = true)
     })
     public void updateMerchantStatus(Long id, MerchantStatus merchantStatus) {
         merchantRepository.updateMerchantStatus(id, merchantStatus, SecurityUtil.getCurrentUserId());
@@ -133,8 +134,8 @@ public class MerchantService {
 
     @Transactional
     @Caching(evict = {
-            @CacheEvict(value = "merchants", key = "#id"),
-            @CacheEvict(value = "merchants-page", allEntries = true)
+            @CacheEvict(value = CacheId.Names.MERCHANTS, key = "#id"),
+            @CacheEvict(value = CacheId.Names.MERCHANTS_PAGE, allEntries = true)
     })
     public void updateMerchantStatusAndKycStatus(Long id, MerchantStatus merchantStatus, KycStatus kycStatus) {
         merchantRepository.updateMerchantStatusAndKycStatus(id, merchantStatus, kycStatus, SecurityUtil.getCurrentUserId());
@@ -142,8 +143,8 @@ public class MerchantService {
 
     @Transactional
     @Caching(evict = {
-            @CacheEvict(value = "merchants", key = "#id"),
-            @CacheEvict(value = "merchants-page", allEntries = true)
+            @CacheEvict(value = CacheId.Names.MERCHANTS, key = "#id"),
+            @CacheEvict(value = CacheId.Names.MERCHANTS_PAGE, allEntries = true)
     })
     public void deleteMerchant(Long id) {
         merchantRepository.softDelete(id, SecurityUtil.getCurrentUserId());
@@ -151,8 +152,8 @@ public class MerchantService {
 
     @Transactional
     @Caching(evict = {
-            @CacheEvict(value = "merchants", key = "#id"),
-            @CacheEvict(value = "merchants-page", allEntries = true)
+            @CacheEvict(value = CacheId.Names.MERCHANTS, key = "#id"),
+            @CacheEvict(value = CacheId.Names.MERCHANTS_PAGE, allEntries = true)
     })
     public void upgradeTier(Long id) {
         MerchantTier existingTier = merchantRepository.findMerchantTierById(id)
