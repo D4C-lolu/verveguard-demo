@@ -6,6 +6,7 @@ import { Trend, Rate, Counter } from 'k6/metrics';
  * VerveguardAPI Stress Test
  *
  * Pre-authenticates merchants in setup(), then stress tests fraud evaluation.
+ * Also measures infrastructure overhead via a ping endpoint.
  *
  * Scenarios:
  *   - merchant: POST /fraud/evaluate (default)
@@ -20,12 +21,16 @@ import { Trend, Rate, Counter } from 'k6/metrics';
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080/api/v1';
 const SCENARIO = __ENV.SCENARIO || 'merchant';
 const PASSWORD = 'Admin123!';
-const NUM_MERCHANTS = 20;  // Keep small for faster setup
+const NUM_MERCHANTS = 20;
 
-// Metrics
+// Metrics - Evaluate
 const evaluateDuration = new Trend('evaluate_duration', true);
 const evaluateFailRate = new Rate('evaluate_fail_rate');
 const evaluateCount = new Counter('evaluate_count');
+
+// Metrics - Ping (overhead baseline)
+const pingDuration = new Trend('ping_duration', true);
+const pingFailRate = new Rate('ping_fail_rate');
 
 export const options = {
     scenarios: {
@@ -43,6 +48,7 @@ export const options = {
     thresholds: {
         'evaluate_duration': ['p(95)<1000'],
         'evaluate_fail_rate': ['rate<0.05'],
+        'ping_fail_rate': ['rate<0.05'],
     },
 };
 
@@ -51,6 +57,41 @@ export const options = {
 // -----------------------------------------------------------------------------
 
 export function setup() {
+    if (SCENARIO === 'admin') {
+        // Admin scenario: only authenticate admin, use merchant data without tokens
+        console.log(`\n========== Setup: Admin scenario ==========\n`);
+
+        const merchants = [];
+        for (let i = 1; i <= NUM_MERCHANTS; i++) {
+            merchants.push({
+                id: i,
+                email: `merchant${i}@stresstest.com`,
+                cardNumber: `4${String(i).padStart(15, '0')}`,
+            });
+        }
+
+        const adminEmail = 'cleanuser@verveguard.com';
+        const res = http.post(
+            `${BASE_URL}/auth/login`,
+            JSON.stringify({ email: adminEmail, password: PASSWORD }),
+            {
+                headers: { 'Content-Type': 'application/json' },
+                timeout: '60s',
+            }
+        );
+
+        if (res.status === 200) {
+            const adminToken = res.json('data.accessToken');
+            console.log(`  [OK] ${adminEmail} (admin)`);
+            console.log(`\n========== Setup complete: admin ready, ${merchants.length} merchant targets ==========\n`);
+            return { merchants, adminToken };
+        } else {
+            console.log(`  [FAIL] ${adminEmail} - ${res.status}`);
+            return { merchants };
+        }
+    }
+
+    // Merchant scenario: authenticate all merchants
     console.log(`\n========== Setup: Authenticating ${NUM_MERCHANTS} merchants ==========\n`);
 
     const merchants = [];
@@ -80,28 +121,7 @@ export function setup() {
             console.log(`  [FAIL] ${email} - ${res.status}`);
         }
 
-        sleep(0.5);  // Gentle pacing - one login per 500ms
-    }
-
-    // For admin scenario, also get admin token
-    if (SCENARIO === 'admin') {
-        const adminEmail = 'cleanuser@verveguard.com';
-        const res = http.post(
-            `${BASE_URL}/auth/login`,
-            JSON.stringify({ email: adminEmail, password: PASSWORD }),
-            {
-                headers: { 'Content-Type': 'application/json' },
-                timeout: '60s',
-            }
-        );
-
-        if (res.status === 200) {
-            const adminToken = res.json('data.accessToken');
-            console.log(`  [OK] ${adminEmail} (admin)`);
-            return { merchants, adminToken };
-        } else {
-            console.log(`  [FAIL] ${adminEmail} - ${res.status}`);
-        }
+        sleep(0.5);
     }
 
     console.log(`\n========== Setup complete: ${merchants.length} merchants ready ==========\n`);
@@ -109,7 +129,7 @@ export function setup() {
 }
 
 // -----------------------------------------------------------------------------
-// Main: Stress test fraud evaluation with pre-authenticated tokens
+// Main
 // -----------------------------------------------------------------------------
 
 export default function (data) {
@@ -129,33 +149,49 @@ export default function (data) {
 function runMerchantScenario(data) {
     const merchant = data.merchants[__VU % data.merchants.length];
 
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${merchant.token}`,
+        'X-Forwarded-For': `192.168.${__VU % 256}.${__ITER % 256}`,
+    };
+
     const payload = JSON.stringify({
         amount: 100 + Math.floor(Math.random() * 9900),
         currency: 'NGN',
         cardNumber: merchant.cardNumber,
     });
 
-    const res = http.post(`${BASE_URL}/fraud/evaluate`, payload, {
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${merchant.token}`,
-            'X-Forwarded-For': `192.168.${__VU % 256}.${__ITER % 256}`,
-        },
+    // ── 1. Ping: measure pure infrastructure overhead ──────────────────────
+    const pingRes = http.get(`${BASE_URL}/health`, {
+        headers,
+        tags: { name: 'ping' },
+        timeout: '10s',
+    });
+
+    pingDuration.add(pingRes.timings.duration);
+
+    const pingOk = check(pingRes, {
+        'ping status 200': (r) => r.status === 200,
+    });
+    pingFailRate.add(!pingOk);
+
+    // ── 2. Evaluate: the real fraud endpoint ───────────────────────────────
+    const evalRes = http.post(`${BASE_URL}/fraud/evaluate`, payload, {
+        headers,
         tags: { name: 'fraud-evaluate' },
         timeout: '30s',
     });
 
-    evaluateDuration.add(res.timings.duration);
+    evaluateDuration.add(evalRes.timings.duration);
     evaluateCount.add(1);
 
-    const success = check(res, {
-        'status 200': (r) => r.status === 200,
+    const evalOk = check(evalRes, {
+        'evaluate status 200': (r) => r.status === 200,
     });
+    evaluateFailRate.add(!evalOk);
 
-    evaluateFailRate.add(!success);
-
-    if (!success) {
-        console.error(`FAIL: ${merchant.email} status=${res.status}`);
+    if (!evalOk) {
+        console.error(`FAIL: ${merchant.email} status=${evalRes.status}`);
     }
 
     sleep(0.2 + Math.random() * 0.1);
@@ -170,90 +206,158 @@ function runAdminScenario(data) {
 
     const merchant = data.merchants[Math.floor(Math.random() * data.merchants.length)];
 
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${data.adminToken}`,
+        'X-Forwarded-For': `10.0.${__VU % 256}.${__ITER % 256}`,
+    };
+
     const payload = JSON.stringify({
         amount: 100 + Math.floor(Math.random() * 9900),
         currency: 'NGN',
         cardNumber: merchant.cardNumber,
     });
 
-    const res = http.post(`${BASE_URL}/fraud/evaluate/${merchant.id}`, payload, {
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${data.adminToken}`,
-            'X-Forwarded-For': `10.0.${__VU % 256}.${__ITER % 256}`,
-        },
+    // ── 1. Ping overhead ───────────────────────────────────────────────────
+    const pingRes = http.get(`${BASE_URL}/health`, {
+        headers,
+        tags: { name: 'ping' },
+        timeout: '10s',
+    });
+
+    pingDuration.add(pingRes.timings.duration);
+    const pingOk = check(pingRes, { 'ping status 200': (r) => r.status === 200 });
+    pingFailRate.add(!pingOk);
+
+    // ── 2. Admin evaluate ──────────────────────────────────────────────────
+    const evalRes = http.post(`${BASE_URL}/fraud/evaluate/${merchant.id}`, payload, {
+        headers,
         tags: { name: 'fraud-evaluate-admin' },
         timeout: '30s',
     });
 
-    evaluateDuration.add(res.timings.duration);
+    evaluateDuration.add(evalRes.timings.duration);
     evaluateCount.add(1);
 
-    const success = check(res, {
-        'status 200': (r) => r.status === 200,
-    });
+    const evalOk = check(evalRes, { 'evaluate status 200': (r) => r.status === 200 });
+    evaluateFailRate.add(!evalOk);
 
-    evaluateFailRate.add(!success);
-
-    if (!success) {
-        console.error(`ADMIN FAIL: merchantId=${merchant.id} status=${res.status}`);
+    if (!evalOk) {
+        console.error(`ADMIN FAIL: merchantId=${merchant.id} status=${evalRes.status}`);
     }
 
     sleep(0.2 + Math.random() * 0.1);
 }
 
+// -----------------------------------------------------------------------------
+// Summary
+// -----------------------------------------------------------------------------
+
+function fmt(val, unit) {
+    return val != null ? `${val.toFixed(2)} ${unit}` : 'N/A';
+}
+
+function grade(p95) {
+    if (p95 == null) return '?';
+    if (p95 < 100)  return '🟢 Excellent';
+    if (p95 < 300)  return '🟡 Good';
+    if (p95 < 600)  return '🟠 Acceptable';
+    if (p95 < 1000) return '🔴 Slow';
+    return '💀 Critical';
+}
+
 export function handleSummary(data) {
-    const scenario = SCENARIO === 'admin' ? 'Admin' : 'Merchant';
+    const scenario = SCENARIO === 'admin' ? 'ADMIN' : 'MERCHANT';
 
-    // Extract metrics
-    const evalDuration = data.metrics.evaluate_duration;
-    const evalFailRate = data.metrics.evaluate_fail_rate;
-    const evalCount = data.metrics.evaluate_count;
-    const httpReqs = data.metrics.http_reqs;
-    const iterations = data.metrics.iterations;
+    const ev  = data.metrics.evaluate_duration?.values;
+    const pi  = data.metrics.ping_duration?.values;
+    const efr = data.metrics.evaluate_fail_rate?.values;
+    const pfr = data.metrics.ping_fail_rate?.values;
+    const ec  = data.metrics.evaluate_count?.values;
+    const req = data.metrics.http_reqs?.values;
+    const its = data.metrics.iterations?.values;
 
-    console.log('\n' + '='.repeat(65));
-    console.log(`  ${scenario.toUpperCase()} STRESS TEST RESULTS`);
-    console.log('='.repeat(65));
-    console.log(`  Endpoint:     ${SCENARIO === 'admin' ? 'POST /fraud/evaluate/{merchantId}' : 'POST /fraud/evaluate'}`);
-    console.log(`  Base URL:     ${BASE_URL}`);
-    console.log('-'.repeat(65));
+    // Derived: app logic cost = evaluate - ping
+    const appLogicAvg = (ev?.avg != null && pi?.avg != null) ? ev.avg - pi.avg : null;
+    const appLogicP95 = (ev?.['p(95)'] != null && pi?.['p(95)'] != null) ? ev['p(95)'] - pi['p(95)'] : null;
 
-    if (evalDuration && evalDuration.values) {
-        const v = evalDuration.values;
-        console.log('  LATENCY (evaluate_duration)');
-        console.log(`    Min:        ${v.min?.toFixed(2) || 'N/A'} ms`);
-        console.log(`    Avg:        ${v.avg?.toFixed(2) || 'N/A'} ms`);
-        console.log(`    Med:        ${v.med?.toFixed(2) || 'N/A'} ms`);
-        console.log(`    Max:        ${v.max?.toFixed(2) || 'N/A'} ms`);
-        console.log(`    p(90):      ${v['p(90)']?.toFixed(2) || 'N/A'} ms`);
-        console.log(`    p(95):      ${v['p(95)']?.toFixed(2) || 'N/A'} ms`);
-        console.log(`    p(99):      ${v['p(99)']?.toFixed(2) || 'N/A'} ms`);
+    const W = 65;
+    const line  = '─'.repeat(W);
+    const dline = '═'.repeat(W);
+
+    console.log('\n' + dline);
+    console.log(`  ${scenario} STRESS TEST RESULTS`);
+    console.log(dline);
+    console.log(`  Endpoint : ${SCENARIO === 'admin' ? 'POST /fraud/evaluate/{merchantId}' : 'POST /fraud/evaluate'}`);
+    console.log(`  Base URL : ${BASE_URL}`);
+
+    // ── Latency ─────────────────────────────────────────────────────────────
+    console.log('\n  📊 LATENCY BREAKDOWN');
+    console.log(line);
+    console.log(`  ${'Metric'.padEnd(14)} ${'Ping (overhead)'.padEnd(20)} ${'Evaluate (total)'.padEnd(20)} App Logic`);
+    console.log(line);
+
+    const rows = [
+        ['Min',   pi?.min,        ev?.min],
+        ['Avg',   pi?.avg,        ev?.avg],
+        ['Median',pi?.med,        ev?.med],
+        ['p(90)', pi?.['p(90)'],  ev?.['p(90)']],
+        ['p(95)', pi?.['p(95)'],  ev?.['p(95)']],
+        ['Max',   pi?.max,        ev?.max],
+    ];
+
+    for (const [label, pingVal, evalVal] of rows) {
+        const logic = (pingVal != null && evalVal != null) ? evalVal - pingVal : null;
+        console.log(
+            `  ${label.padEnd(14)} ${fmt(pingVal, 'ms').padEnd(20)} ${fmt(evalVal, 'ms').padEnd(20)} ${fmt(logic, 'ms')}`
+        );
     }
 
-    console.log('-'.repeat(65));
-    console.log('  THROUGHPUT');
-    if (httpReqs && httpReqs.values) {
-        console.log(`    Total Reqs: ${httpReqs.values.count || 'N/A'}`);
-        console.log(`    Req/s:      ${httpReqs.values.rate?.toFixed(2) || 'N/A'}`);
+    // ── Overhead summary ────────────────────────────────────────────────────
+    console.log('\n  🔍 OVERHEAD ANALYSIS');
+    console.log(line);
+    if (pi?.avg != null && ev?.avg != null) {
+        const overheadPct = ((pi.avg / ev.avg) * 100).toFixed(1);
+        const logicPct    = (100 - overheadPct).toFixed(1);
+        console.log(`  Avg response breakdown:`);
+        console.log(`    Infrastructure overhead : ${fmt(pi.avg, 'ms')}  (${overheadPct}% of total)`);
+        console.log(`    App / fraud logic       : ${fmt(appLogicAvg, 'ms')}  (${logicPct}% of total)`);
+        console.log(`    Total                   : ${fmt(ev.avg, 'ms')}`);
     }
-    if (evalCount && evalCount.values) {
-        console.log(`    Evaluations: ${evalCount.values.count || 'N/A'}`);
-    }
-    if (iterations && iterations.values) {
-        console.log(`    Iterations: ${iterations.values.count || 'N/A'}`);
-    }
-
-    console.log('-'.repeat(65));
-    console.log('  RELIABILITY');
-    if (evalFailRate && evalFailRate.values) {
-        const failPct = (evalFailRate.values.rate * 100).toFixed(2);
-        const passPct = (100 - evalFailRate.values.rate * 100).toFixed(2);
-        console.log(`    Success:    ${passPct}%`);
-        console.log(`    Failures:   ${failPct}%`);
+    if (appLogicP95 != null) {
+        console.log(`  p(95) app logic cost      : ${fmt(appLogicP95, 'ms')}`);
     }
 
-    console.log('='.repeat(65) + '\n');
+    // ── Performance grade ───────────────────────────────────────────────────
+    console.log('\n  🏁 PERFORMANCE GRADE');
+    console.log(line);
+    console.log(`  Evaluate p(95) : ${fmt(ev?.['p(95)'], 'ms')}  →  ${grade(ev?.['p(95)'])}`);
+    console.log(`  Ping p(95)     : ${fmt(pi?.['p(95)'], 'ms')}  →  ${grade(pi?.['p(95)'])}`);
+    console.log(`  Threshold      : p(95) < 1000ms`);
+
+    // ── Throughput ──────────────────────────────────────────────────────────
+    console.log('\n  ⚡ THROUGHPUT');
+    console.log(line);
+    if (req?.count != null) console.log(`  Total HTTP requests : ${req.count}`);
+    if (req?.rate  != null) console.log(`  Requests/sec        : ${req.rate.toFixed(2)}`);
+    if (ec?.count  != null) console.log(`  Fraud evaluations   : ${ec.count}`);
+    if (its?.count != null) console.log(`  Iterations          : ${its.count}`);
+
+    // ── Reliability ─────────────────────────────────────────────────────────
+    console.log('\n  ✅ RELIABILITY');
+    console.log(line);
+    if (efr?.rate != null) {
+        const s = (100 - efr.rate * 100).toFixed(2);
+        const f = (efr.rate * 100).toFixed(2);
+        console.log(`  Evaluate  →  Success: ${s}%   Failures: ${f}%`);
+    }
+    if (pfr?.rate != null) {
+        const s = (100 - pfr.rate * 100).toFixed(2);
+        const f = (pfr.rate * 100).toFixed(2);
+        console.log(`  Ping      →  Success: ${s}%   Failures: ${f}%`);
+    }
+
+    console.log('\n' + dline + '\n');
 
     return {};
 }
