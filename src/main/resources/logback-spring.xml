@@ -47,7 +47,7 @@
 
         <!-- 2.0.x: labels are top-level, one per line, no commas, no <pattern> wrapper -->
         <labels>
-            app=verveguar-demo
+            app=verveguard-demo
             level=%level
         </labels>
 

@@ -1851,21 +1851,6 @@
           "color": {
             "mode": "thresholds"
           },
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "color": "red",
-                  "text": "DOWN"
-                },
-                "1": {
-                  "color": "green",
-                  "text": "UP"
-                }
-              },
-              "type": "value"
-            }
-          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1874,11 +1859,18 @@
                 "value": null
               },
               {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
                 "color": "green",
-                "value": 1
+                "value": 0.8
               }
             ]
-          }
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
         }
       },
       "gridPos": {
@@ -1889,9 +1881,10 @@
       },
       "id": 59,
       "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -1901,7 +1894,7 @@
         },
         "textMode": "auto"
       },
-      "title": "Cache Health Status",
+      "title": "Blacklist Cache Evictions",
       "type": "stat",
       "targets": [
         {
@@ -1909,8 +1902,8 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "health_status{application=\"verveguard-demo\", component=\"cacheHealthIndicator\"}",
-          "legendFormat": "Cache Health"
+          "expr": "rate(cache_evictions_total{application=\"verveguard-demo\", name=\"blacklist\"}[5m])",
+          "legendFormat": "Evictions/s"
         }
       ]
     },
