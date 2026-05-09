@@ -2,6 +2,7 @@ package com.interswitch.verveguarddemo.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -36,15 +37,18 @@ public class UserIpHistoryService {
     }
 
     public void recordIp(String accountId, String ipAddress) {
-        if (accountId == null || ipAddress == null) {
-            return;
-        }
+        if (accountId == null || ipAddress == null) return;
         try {
             String key = buildKey(accountId);
-            redisTemplate.opsForList().remove(key, 1, ipAddress);
-            redisTemplate.opsForList().leftPush(key, ipAddress);
-            redisTemplate.opsForList().trim(key, 0, MAX_IPS - 1);
-            redisTemplate.expire(key, TTL);
+            redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+                byte[] k = key.getBytes();
+                byte[] v = ipAddress.getBytes();
+                connection.listCommands().lRem(k, 1, v);
+                connection.listCommands().lPush(k, v);
+                connection.listCommands().lTrim(k, 0, MAX_IPS - 1);
+                connection.keyCommands().expire(k, TTL.getSeconds());
+                return null;
+            });
         } catch (Exception e) {
             log.warn("Failed to record IP {} for account: {}", ipAddress, accountId, e);
         }

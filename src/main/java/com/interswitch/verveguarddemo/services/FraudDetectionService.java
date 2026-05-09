@@ -18,7 +18,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -41,21 +40,19 @@ public class FraudDetectionService {
     /**
      * Called from merchant-facing endpoints — merchantId from security context.
      */
-    @Transactional
     public FraudStatus evaluate(FraudEvaluationRequest request, String ipAddress) {
         Long merchantId = SecurityUtil.getCurrentUserId();
-        return evaluate(buildContext(request, merchantId, ipAddress));
+        return evaluateInternal(buildContext(request, merchantId, ipAddress));
     }
 
     /**
      * Called from admin/internal endpoints — merchantId explicit on request.
      */
-    @Transactional
     public FraudStatus evaluateForMerchant(FraudEvaluationRequest request, Long merchantId, String ipAddress) {
-        return evaluate(buildContext(request, merchantId, ipAddress));
+        return evaluateInternal(buildContext(request, merchantId, ipAddress));
     }
 
-    private FraudStatus evaluate(FraudEvaluationContext ctx) {
+    private FraudStatus evaluateInternal(FraudEvaluationContext ctx) {
         String cardHash = DigestUtils.sha256Hex(ctx.cardNumber());
 
         try {
@@ -110,16 +107,7 @@ public class FraudDetectionService {
         fraudLogger.logAttempt(cardHash, ctx, status, flags);
 
         if (status != FraudStatus.CLEAN) {
-            applyConsequences(ctx, cardHash, status, flags);
-        }
-    }
-
-    private void applyConsequences(FraudEvaluationContext ctx, String cardHash,
-                                   FraudStatus status, List<String> flags) {
-        try {
             fraudConsequenceService.applyConsequences(ctx, cardHash, status, flags);
-        } catch (Exception e) {
-            log.error("Failed to apply fraud consequences for merchant={}", ctx.merchantId(), e);
         }
     }
 

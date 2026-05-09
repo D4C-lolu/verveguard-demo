@@ -47,7 +47,7 @@ public class CardServiceIntegrationTest extends BaseIntegrationTest {
     @DisplayName("should create card successfully")
     void shouldCreateCardSuccessfully() {
         authenticateAsMerchant("testmerchant4@verveguard.com"); // APPROVED, no card
-        CardResponse response = cardService.createCard(buildCreateRequest("4222222222222222"));
+        CardResponse response = cardService.createCard(buildCreateRequest("4222222222222223"));
 
         assertThat(response.cardType()).isEqualTo(CardType.VIRTUAL);
         assertThat(response.scheme()).isEqualTo(CardScheme.VISA);
@@ -208,7 +208,7 @@ public class CardServiceIntegrationTest extends BaseIntegrationTest {
     void shouldCreateAccountForCardWhenCardIsCreated() {
         authenticateAsMerchant("testmerchant4@verveguard.com");
 
-        String rawCardNumber = "4222222222222222";
+        String rawCardNumber = "4222222222222223";
         CardResponse card = cardService.createCard(buildCreateRequest(rawCardNumber));
 
         forceFlush();

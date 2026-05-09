@@ -4,12 +4,15 @@ import lombok.Getter;
 import org.jspecify.annotations.NonNull;
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class TieredCache implements org.springframework.cache.Cache {
 
     @Getter
     private final org.springframework.cache.Cache l1;
     private final org.springframework.cache.Cache l2;
+
+    private final ConcurrentHashMap<Object, Object> keyLocks = new ConcurrentHashMap<>();
 
     public TieredCache(org.springframework.cache.Cache l1, org.springframework.cache.Cache l2) {
         this.l1 = l1;
@@ -52,33 +55,50 @@ public class TieredCache implements org.springframework.cache.Cache {
         return v;
     }
 
+
     @Override
     @SuppressWarnings("unchecked")
     public <T> T get(@NonNull Object key, @NonNull Callable<T> valueLoader) {
-        // Check L1 via ValueWrapper to preserve type info
+        // L1 hit
         ValueWrapper wrapper = l1.get(key);
-        if (wrapper != null) {
-            return (T) wrapper.get();
-        }
+        if (wrapper != null) return (T) wrapper.get();
 
-        // Check L2 via ValueWrapper before invoking loader
+        // L2 hit — backfill L1
         wrapper = l2.get(key);
         if (wrapper != null) {
             T v = (T) wrapper.get();
-            l1.put(key, v); // backfill L1
+            l1.put(key, v);
             return v;
         }
 
-        // True cache miss — invoke the loader (hits DB)
-        try {
-            T v = valueLoader.call();
-            l1.put(key, v);
-            l2.put(key, v);
-            return v;
-        } catch (Exception e) {
-            throw new ValueRetrievalException(key, valueLoader, e);
+        // True miss — only one thread loads per key, others wait
+        Object lock = keyLocks.computeIfAbsent(key, k -> new Object());
+        synchronized (lock) {
+            try {
+                // Double-check after acquiring lock — another thread may have loaded it
+                wrapper = l1.get(key);
+                if (wrapper != null) return (T) wrapper.get();
+
+                wrapper = l2.get(key);
+                if (wrapper != null) {
+                    T v = (T) wrapper.get();
+                    l1.put(key, v);
+                    return v;
+                }
+
+                // Still a miss — we're the loader
+                T v = valueLoader.call();
+                l1.put(key, v);
+                l2.put(key, v);
+                return v;
+            } catch (Exception e) {
+                throw new ValueRetrievalException(key, valueLoader, e);
+            } finally {
+                keyLocks.remove(key);
+            }
         }
     }
+
 
     @Override
     public void put(@NonNull Object key, Object value) {

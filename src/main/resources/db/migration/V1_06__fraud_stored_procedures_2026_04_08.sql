@@ -1,26 +1,29 @@
 -- Single combined evaluation call — blacklist + transaction limit in one query
-CREATE
-OR REPLACE FUNCTION sp_fraud_get_evaluation_data(
-    p_card_hash text
-) RETURNS TABLE (
-    is_card_blocked   boolean,
-    is_merchant_blacklisted boolean,
-    transaction_limit numeric,
-    merchant_id       bigint
-) LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION sp_fraud_get_evaluation_data(
+    p_card_hash TEXT
+)
+RETURNS TABLE (
+    is_card_blocked         BOOLEAN,
+    is_merchant_blacklisted BOOLEAN,
+    transaction_limit       NUMERIC,
+    merchant_id             BIGINT
+)
+LANGUAGE plpgsql AS $$
 BEGIN
 RETURN QUERY
-SELECT (c.card_status = 'BLOCKED')         AS is_card_blocked,
-	   EXISTS (SELECT 1
-			   FROM merchant_blacklist mb
-			   WHERE mb.merchant_id = c.merchant_id
-				 AND mb.lifted_at IS NULL) AS is_merchant_blacklisted,
-	   tc.single_transaction_limit         AS transaction_limit,
-	   c.merchant_id                       AS merchant_id
-FROM cards c
-		 JOIN merchants m ON m.id = c.merchant_id
-		 JOIN tier_configs tc ON tc.tier = m.tier
-WHERE c.card_hash = p_card_hash LIMIT 1;
+SELECT
+	(c.card_status = 'BLOCKED')  AS is_card_blocked,
+	(mb.merchant_id IS NOT NULL) AS is_merchant_blacklisted,
+	tc.single_transaction_limit  AS transaction_limit,
+	c.merchant_id
+FROM  cards c
+		  JOIN  merchants m      ON m.id    = c.merchant_id
+		  JOIN  tier_configs tc  ON tc.tier = m.tier
+		  LEFT JOIN merchant_blacklist mb
+					ON mb.merchant_id = c.merchant_id
+						AND mb.lifted_at   IS NULL
+WHERE c.card_hash = p_card_hash
+	LIMIT 1;
 END;
 $$;
 

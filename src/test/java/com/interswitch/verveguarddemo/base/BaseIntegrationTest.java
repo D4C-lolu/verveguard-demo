@@ -1,5 +1,6 @@
 package com.interswitch.verveguarddemo.base;
 
+import com.interswitch.verveguarddemo.config.SyncAsyncConfig;
 import com.interswitch.verveguarddemo.config.TestcontainersConfiguration;
 import com.interswitch.verveguarddemo.entities.Merchant;
 import com.interswitch.verveguarddemo.entities.User;
@@ -24,7 +25,7 @@ import java.util.List;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-@Import({TestcontainersConfiguration.class})
+@Import({TestcontainersConfiguration.class, SyncAsyncConfig.class})
 @Transactional
 public abstract class BaseIntegrationTest {
 

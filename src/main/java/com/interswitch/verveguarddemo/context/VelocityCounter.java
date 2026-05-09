@@ -1,8 +1,8 @@
 package com.interswitch.verveguarddemo.context;
 
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -17,6 +17,7 @@ public class VelocityCounter {
     private static final Duration RETENTION = Duration.ofHours(25);
     private final StringRedisTemplate redisTemplate;
 
+    @Async
     public void record(String cardNumber, String transactionId) {
         redisTemplate.opsForZSet().add(toKey(cardNumber), transactionId,
                 Instant.now().toEpochMilli());

@@ -241,3 +241,13 @@ CREATE TABLE IF NOT EXISTS merchant_blacklist (
 CREATE INDEX IF NOT EXISTS idx_merchant_blacklist_merchant_id ON merchant_blacklist (merchant_id);
 CREATE INDEX IF NOT EXISTS idx_merchant_blacklist_lifted_at   ON merchant_blacklist (lifted_at);
 CREATE INDEX IF NOT EXISTS idx_merchant_blacklist_active      ON merchant_blacklist (merchant_id) WHERE lifted_at IS NULL;
+
+
+CREATE INDEX ON fraud_attempts (card_hash, created_at);
+CREATE INDEX ON cards (card_hash);
+CREATE INDEX ON accounts (account_number);
+CREATE INDEX ON merchant_blacklist (merchant_id, lifted_at);
+CREATE INDEX ON tier_configs (tier);
+
+-- Optional: partial index if most blacklist rows are lifted
+CREATE INDEX ON merchant_blacklist (merchant_id) WHERE lifted_at IS NULL;

@@ -22,6 +22,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("fraud")
 @RequiredArgsConstructor
@@ -44,6 +46,11 @@ public class FraudController {
     })
     public FraudStatus evaluate(@RequestBody @Valid FraudEvaluationRequest request, HttpServletRequest httpServletRequest) {
         return fraudDetectionService.evaluate(request, IpUtil.extractIp(httpServletRequest));
+    }
+
+    @GetMapping("ping")
+    public Map<String, String> pingEvaluate() {
+        return Map.of("status", "ok");
     }
 
     @PostMapping("evaluate/{merchantId}")

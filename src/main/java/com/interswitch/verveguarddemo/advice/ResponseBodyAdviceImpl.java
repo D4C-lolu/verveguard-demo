@@ -31,7 +31,7 @@ import static java.time.LocalDateTime.now;
 import static org.springframework.http.HttpStatus.*;
 
 @Slf4j
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = {"com.interswitch.verveguarddemo", "com.interswitch.verveguard"})
 public class ResponseBodyAdviceImpl {
 
     @ExceptionHandler({

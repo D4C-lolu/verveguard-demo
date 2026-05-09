@@ -14,8 +14,9 @@ import java.util.UUID;
 @Component
 public class ObservabilityAspect {
 
-    @Around("within(com.interswitch.verveguard.core..*) " +
+    @Around("within(com.interswitch.verveguard..*) " +
             "|| within(com.interswitch.verveguarddemo.services..*) " +
+            "|| within(com.interswitch.verveguarddemo.context..*) " +
             "|| within(com.interswitch.verveguarddemo.repositories..*) " +
             "|| within(com.interswitch.verveguarddemo.dao..*)")
     public Object observe(ProceedingJoinPoint pjp) throws Throwable {

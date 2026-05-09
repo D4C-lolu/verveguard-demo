@@ -16,117 +16,136 @@
 
 - **Node.js**: Required for `fraud-demo.js` (v18+)
 
+---
+
 ## Available Scripts
 
 | Script | Description | Tool |
 |--------|-------------|------|
-| `stress.js` | Fraud evaluation load test with warm-up | k6 |
+| `stress.js` | Fraud evaluation load test | k6 |
 | `fraud-demo.js` | Interactive fraud scenario demo | Node.js |
 
 ---
 
 ## k6 Stress Test (`stress.js`)
 
-Two-phase stress test:
-1. **Warm-up**: Authenticates all merchants sequentially (avoids login bottleneck)
-2. **Load**: Hammers the fraud evaluation endpoint with cached tokens
+Tests the fraud evaluation endpoint under load. Supports three executor modes, two scenarios, and is fully configured via `-e` flags.
+
+### Executor Modes
+
+| `EXECUTOR` | Behaviour |
+|---|---|
+| `constant` *(default)* | Fixed VU count for a set duration |
+| `ramp` | Ramps up → sustains at peak → ramps down |
+| `iterations` | Spreads a fixed request count across VUs |
+
+### Scenarios
+
+| `SCENARIO` | Behaviour |
+|---|---|
+| `merchant` *(default)* | Each VU authenticates as one of N merchants with its own token |
+| `admin` | All VUs share a single admin token |
 
 ### Run Commands
 
 ```bash
-# Merchant scenario (default)
+# Default (constant load, merchant scenario)
 k6 run stress.js
 
-# Admin scenario
-k6 run -e SCENARIO=admin stress.js
-
 # Custom base URL
-k6 run -e BASE_URL=http://staging:8080/api/v1 stress.js
+k6 run stress.js -e BASE_URL=http://staging:8080/api/v1
 
-# Fixed number of requests (e.g., 200 total)
-k6 run --vus 10 --iterations 200 stress.js
+# Admin scenario
+k6 run stress.js -e SCENARIO=admin
 
-# High throughput (~200 req/s for 30 seconds)
-k6 run --vus 50 --duration 30s stress.js
+# Ramp: 0 → 200 VUs over 30s, sustain for 1m
+k6 run stress.js -e EXECUTOR=ramp -e MAX_VUS=200 -e RAMP_DURATION=30s -e SUSTAIN=1m
+
+# Fixed iterations: 50 VUs share 1000 total requests
+k6 run stress.js -e EXECUTOR=iterations -e VUS=50 -e ITERATIONS=1000
+
+# High throughput: 200 VUs constant for 2 minutes
+k6 run stress.js -e VUS=200 -e DURATION=2m
 ```
 
-### Test Phases
+### All Flags
 
-| Phase | Duration | VUs | Description |
-|-------|----------|-----|-------------|
-| Warm-up | ~30s | 5 | Authenticate 50 merchants sequentially |
-| Ramp-up | 10s | 0→20 | Start load |
-| Sustain | 30s | 40 | Full load |
-| Ramp-down | 10s | 40→0 | Cool down |
+| Flag | Default | Modes |
+|---|---|---|
+| `BASE_URL` | `http://localhost:8080/api/v1` | all |
+| `SCENARIO` | `merchant` | all |
+| `EXECUTOR` | `constant` | all |
+| `PASSWORD` | `Admin123!` | all |
+| `NUM_MERCHANTS` | `20` | all |
+| `THINK_MS` | `300` | all |
+| `VUS` | `200` | `constant`, `iterations` |
+| `DURATION` | `1m` | `constant` |
+| `MAX_VUS` | falls back to `VUS` | `ramp` |
+| `RAMP_DURATION` | `30s` | `ramp` |
+| `SUSTAIN` | falls back to `DURATION` | `ramp` |
+| `ITERATIONS` | `1000` | `iterations` |
 
 ### Thresholds
 
+The run is marked failed if either threshold is breached:
+
 | Metric | Threshold |
-|--------|-----------|
-| `evaluate_duration` p95 | < 1000ms |
+|---|---|
+| `evaluate_duration` p95 | < 2000ms |
 | `evaluate_fail_rate` | < 5% |
+
+### Output Options
+
+```bash
+# Detailed percentile breakdown
+k6 run stress.js --summary-trend-stats="avg,min,med,max,p(90),p(95),p(99)"
+
+# Export raw results to JSON
+k6 run stress.js --out json=results.json
+
+# Export summary to JSON
+k6 run stress.js --summary-export=summary.json
+
+# Live web dashboard (k6 v0.49+)
+k6 run stress.js --out web-dashboard
+```
 
 ---
 
 ## Fraud Demo (`fraud-demo.js`)
 
-Interactive demonstration of fraud detection scenarios.
+Interactive walkthrough of fraud detection scenarios. Each scenario sends a crafted request and prints the engine's response alongside the expected result.
+
+### Run Commands
 
 ```bash
 # Run all scenarios
 node fraud-demo.js
 
-# Run specific scenario
+# Run a specific scenario by number
 node fraud-demo.js --scenario 1
 
-# List scenarios
+# List available scenarios
 node fraud-demo.js --list
 
-# Custom settings
-node fraud-demo.js --delay 5000 --base-url http://staging:8080/api/v1
+# Custom base URL and delay between requests
+node fraud-demo.js --base-url http://staging:8080/api/v1 --delay 5000
 ```
 
 ### Scenarios
 
 | # | Name | Expected Result |
-|---|------|-----------------|
+|---|---|---|
 | 1 | Merchant Blacklisted | BLOCKED (hard block) |
 | 2 | Velocity Trigger | SUSPICIOUS (30 points) |
 | 3 | Combined Block | BLOCKED (90 points) |
-| 4 | Single Limit Exceeded | CLEAN (25 points < 30 threshold) |
+| 4 | Single Limit Exceeded | CLEAN (25 points, below 30 threshold) |
 | 5 | After Hours | SUSPICIOUS (run after 22:00) |
-
----
-
-## Common k6 Options
-
-```bash
-# Override load profile
-k6 run --vus 20 --duration 30s stress.js
-
-# Fixed iterations (e.g., exactly 200 requests)
-k6 run --vus 10 --iterations 200 stress.js
-
-# 200 concurrent requests (all at once)
-k6 run --vus 200 --iterations 200 stress.js
-
-# Show detailed percentile stats
-k6 run --vus 10 --iterations 200 --summary-trend-stats="avg,min,med,max,p(90),p(95),p(99)" stress.js
-
-# Output to JSON for analysis
-k6 run --out json=results.json stress.js
-
-# Web dashboard (k6 v0.49+)
-k6 run --out web-dashboard stress.js
-
-# Summary export
-k6 run --summary-export=summary.json stress.js
-```
 
 ---
 
 ## Tips
 
-1. **Monitor during tests**: Watch Grafana at http://localhost:3000
-2. **Check logs**: `docker logs -f verveguard-demo`
-3. **Redis health**: Velocity counting depends on Redis
+- **Check logs** while a test is running: `docker logs -f verveguard-demo`
+- **Redis health**: Velocity counting depends on Redis — verify it's up before running velocity scenarios
+- **Token expiry**: If a long test returns sudden 401s, reduce `DURATION` or pre-issue longer-lived tokens

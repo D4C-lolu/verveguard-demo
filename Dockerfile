@@ -55,5 +55,5 @@ ENTRYPOINT ["java", \
     "-XX:ConcGCThreads=2", \
     "-Xss512k", \
     "-Djava.security.egd=file:/dev/./urandom", \
-    "-Dspring.profiles.active=prod", \
+    "-Dspring.profiles.active=dev", \
     "-jar", "app.jar"]

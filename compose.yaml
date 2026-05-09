@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: verveguard-demo
     environment:
-      SPRING_PROFILES_ACTIVE: prod
+      SPRING_PROFILES_ACTIVE: dev
       SERVER_PORT: ${SERVER_PORT}
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
@@ -15,15 +15,20 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_SECRET_EXPIRATION: ${JWT_SECRET_EXPIRATION}
       JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION}
-      LOKI_HOST: loki
+      LOKI_HOST: ${LOKI_HOST:-loki}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 50
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 30
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 10
       SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 20000
       SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT: 300000
       SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
       SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME: 60000
+      SPRING_DATA_REDIS_LETTUCE_POOL_MAX_ACTIVE: 20
+      SPRING_DATA_REDIS_LETTUCE_POOL_MAX_IDLE: 10
+      SPRING_DATA_REDIS_LETTUCE_POOL_MIN_IDLE: 5
+      SPRING_DATA_REDIS_LETTUCE_POOL_MAX_WAIT: 2000ms
+      SPRING_THREADS_VIRTUAL_ENABLED: true
     ports:
       - "${SERVER_PORT}:${SERVER_PORT}"
     depends_on:
@@ -36,7 +41,7 @@ services:
       resources:
         limits:
           cpus: '4'
-          memory: 4G
+          memory: 6G
         reservations:
           cpus: '2'
           memory: 2G
@@ -52,17 +57,17 @@ services:
     restart: unless-stopped
     ports:
       - "${REDIS_PORT:-6379}:6379"
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     deploy:
       resources:
         limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
           cpus: '0.5'
           memory: 256M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
@@ -80,16 +85,16 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     command: >
       postgres
-      -c max_connections=200
-      -c shared_buffers=512MB
-      -c effective_cache_size=1536MB
+      -c max_connections=100
+      -c shared_buffers=768MB
+      -c effective_cache_size=2048MB
       -c maintenance_work_mem=128MB
       -c checkpoint_completion_target=0.9
       -c wal_buffers=16MB
       -c default_statistics_target=100
       -c random_page_cost=1.1
       -c effective_io_concurrency=200
-      -c work_mem=6MB
+      -c work_mem=8MB
       -c synchronous_commit=off
       -c commit_delay=1000
       -c commit_siblings=5
@@ -99,10 +104,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 2G
+          cpus: '3'
+          memory: 3G
         reservations:
-          cpus: '1'
+          cpus: '2'
           memory: 1G
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -123,11 +128,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
+          cpus: '0.1'
           memory: 256M
+        reservations:
+          cpus: '0.05'
+          memory: 128M
 
   loki:
     image: grafana/loki:latest
@@ -139,11 +144,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 256M
-        reservations:
-          cpus: '0.25'
+          cpus: '0.1'
           memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
 
   grafana:
     image: grafana/grafana:latest
@@ -163,11 +168,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 256M
-        reservations:
-          cpus: '0.25'
+          cpus: '0.1'
           memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
 
 volumes:
   postgres_data:
