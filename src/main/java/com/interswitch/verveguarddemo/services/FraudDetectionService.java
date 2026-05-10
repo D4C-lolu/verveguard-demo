@@ -5,6 +5,7 @@ import com.interswitch.verveguard.api.FraudEvaluator;
 import com.interswitch.verveguard.api.model.FraudContext;
 import com.interswitch.verveguard.api.model.FraudResult;
 import com.interswitch.verveguard.api.model.GateResult;
+import com.interswitch.verveguarddemo.annotation.Observed;
 import com.interswitch.verveguarddemo.context.PrefetchedFraudDataProvider;
 import com.interswitch.verveguarddemo.context.VelocityCounter;
 import com.interswitch.verveguarddemo.dao.FraudDao;
@@ -40,6 +41,7 @@ public class FraudDetectionService {
     /**
      * Called from merchant-facing endpoints — merchantId from security context.
      */
+    @Observed
     public FraudStatus evaluate(FraudEvaluationRequest request, String ipAddress) {
         Long merchantId = SecurityUtil.getCurrentUserId();
         return evaluateInternal(buildContext(request, merchantId, ipAddress));
@@ -48,6 +50,7 @@ public class FraudDetectionService {
     /**
      * Called from admin/internal endpoints — merchantId explicit on request.
      */
+    @Observed
     public FraudStatus evaluateForMerchant(FraudEvaluationRequest request, Long merchantId, String ipAddress) {
         return evaluateInternal(buildContext(request, merchantId, ipAddress));
     }

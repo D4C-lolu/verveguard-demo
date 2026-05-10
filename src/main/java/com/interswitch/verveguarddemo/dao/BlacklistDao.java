@@ -1,6 +1,7 @@
 package com.interswitch.verveguarddemo.dao;
 
 import com.github.benmanes.caffeine.cache.Cache;
+import com.interswitch.verveguarddemo.annotation.Observed;
 import com.interswitch.verveguarddemo.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.jpa.repository.Modifying;
@@ -15,6 +16,7 @@ public class BlacklistDao {
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final Cache<Long, Boolean> blacklistedMerchantCache;
 
+    @Observed
     @Modifying
     public void blacklistMerchant(Long merchantId, String reason, Long blacklistedBy) {
         MapSqlParameterSource params = new MapSqlParameterSource()

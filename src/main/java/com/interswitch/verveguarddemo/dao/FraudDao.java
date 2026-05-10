@@ -1,5 +1,6 @@
 package com.interswitch.verveguarddemo.dao;
 
+import com.interswitch.verveguarddemo.annotation.Observed;
 import com.interswitch.verveguarddemo.models.enums.FraudStatus;
 import com.interswitch.verveguarddemo.models.projections.FraudAttemptRecord;
 import com.interswitch.verveguarddemo.models.projections.StaticFraudData;
@@ -27,6 +28,7 @@ public class FraudDao {
 
     private final NamedParameterJdbcTemplate namedJdbc;
 
+    @Observed
     public StaticFraudData getEvaluationData(String cardHash) {
         return namedJdbc.queryForObject(
                 "SELECT * FROM sp_fraud_get_evaluation_data(:cardHash)",
@@ -40,6 +42,7 @@ public class FraudDao {
         );
     }
 
+    @Observed
     public void insertFraudAttempt(FraudAttemptRecord record) {
         namedJdbc.query(
                 "SELECT sp_fraud_insert_attempt(:cardHash, :merchantId, :ipAddress, " +

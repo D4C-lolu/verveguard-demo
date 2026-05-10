@@ -1,5 +1,6 @@
 package com.interswitch.verveguarddemo.services;
 
+import com.interswitch.verveguarddemo.annotation.Observed;
 import com.interswitch.verveguarddemo.dao.BlacklistDao;
 import com.interswitch.verveguarddemo.models.enums.FraudStatus;
 import com.interswitch.verveguarddemo.models.projections.FraudEvaluationContext;
@@ -23,6 +24,7 @@ public class FraudConsequenceService {
     private final MerchantRepository merchantRepository;
 
     @Async
+    @Observed
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void applyConsequences(FraudEvaluationContext ctx, String cardHash, FraudStatus status, List<String> flags) {
         if (status == FraudStatus.BLOCKED) {

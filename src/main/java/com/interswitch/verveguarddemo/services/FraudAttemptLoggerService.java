@@ -1,5 +1,6 @@
 package com.interswitch.verveguarddemo.services;
 
+import com.interswitch.verveguarddemo.annotation.Observed;
 import com.interswitch.verveguarddemo.dao.FraudDao;
 import com.interswitch.verveguarddemo.models.enums.FraudStatus;
 import com.interswitch.verveguarddemo.models.projections.FraudAttemptRecord;
@@ -20,6 +21,7 @@ public class FraudAttemptLoggerService {
 
     private final FraudDao fraudDao;
 
+    @Observed
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logAttempt(String cardHash, FraudEvaluationContext ctx, FraudStatus status, List<String> flags) {

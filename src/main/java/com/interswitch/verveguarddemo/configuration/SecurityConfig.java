@@ -1,5 +1,6 @@
 package com.interswitch.verveguarddemo.configuration;
 
+import com.interswitch.verveguarddemo.constants.Permissions;
 import com.interswitch.verveguarddemo.filters.JwtAuthFilter;
 import com.interswitch.verveguarddemo.security.AccessDeniedHandlerImpl;
 import com.interswitch.verveguarddemo.security.AuthEntryPoint;
@@ -49,9 +50,8 @@ public class SecurityConfig {
                         .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers( "/actuator/**").permitAll()
-//                        .requestMatchers( "/actuator/health/**").permitAll()
-//                        .requestMatchers("/actuator/**").hasAuthority(Permissions.SYSTEM_MONITOR)
+                        .requestMatchers( "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator/**").hasAuthority(Permissions.SYSTEM_MONITOR)
                         .requestMatchers(
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
@@ -60,7 +60,7 @@ public class SecurityConfig {
                                 "/webjars/**"
                         ).permitAll()
                         .requestMatchers("/api/*/auth/**", "/api/*/merchants/register").permitAll()
-                        .requestMatchers("/api/v1/fraud/ping").permitAll()
+                        .requestMatchers("/api/*/fraud/ping").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
