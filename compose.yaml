@@ -1,56 +1,53 @@
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: verveguard-demo
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
-      SERVER_PORT: ${SERVER_PORT}
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_HOST: postgres
-      DB_PORT: ${DB_PORT}
-      DB_NAME: ${DB_NAME}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_SECRET_EXPIRATION: ${JWT_SECRET_EXPIRATION}
-      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION}
-      LOKI_HOST: ${LOKI_HOST:-loki}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 30
-      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 10
-      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 20000
-      SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT: 300000
-      SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
-      SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME: 60000
-      SPRING_DATA_REDIS_LETTUCE_POOL_MAX_ACTIVE: 20
-      SPRING_DATA_REDIS_LETTUCE_POOL_MAX_IDLE: 10
-      SPRING_DATA_REDIS_LETTUCE_POOL_MIN_IDLE: 5
-      SPRING_DATA_REDIS_LETTUCE_POOL_MAX_WAIT: 2000ms
-      SPRING_THREADS_VIRTUAL_ENABLED: true
-    ports:
-      - "${SERVER_PORT}:${SERVER_PORT}"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      loki:
-        condition: service_started
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '4'
-          memory: 6G
-        reservations:
-          cpus: '2'
-          memory: 2G
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:${SERVER_PORT}/actuator/health" ]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 40s
+#  app:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#    container_name: verveguard-demo
+#    environment:
+#      SPRING_PROFILES_ACTIVE: docker
+#      SERVER_PORT: ${SERVER_PORT}
+#      DB_USERNAME: ${DB_USERNAME}
+#      DB_PASSWORD: ${DB_PASSWORD}
+#      DB_HOST: postgres
+#      DB_PORT: ${DB_PORT}
+#      DB_NAME: ${DB_NAME}
+#      JWT_SECRET: ${JWT_SECRET}
+#      JWT_SECRET_EXPIRATION: ${JWT_SECRET_EXPIRATION}
+#      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION}
+#      REDIS_HOST: redis
+#      REDIS_PORT: 6379
+#      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 30
+#      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 10
+#      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 20000
+#      SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT: 300000
+#      SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
+#      SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME: 60000
+#      SPRING_DATA_REDIS_LETTUCE_POOL_MAX_ACTIVE: 20
+#      SPRING_DATA_REDIS_LETTUCE_POOL_MAX_IDLE: 10
+#      SPRING_DATA_REDIS_LETTUCE_POOL_MIN_IDLE: 5
+#      SPRING_DATA_REDIS_LETTUCE_POOL_MAX_WAIT: 2000ms
+#      SPRING_THREADS_VIRTUAL_ENABLED: true
+#    ports:
+#      - "${SERVER_PORT}:${SERVER_PORT}"
+#    depends_on:
+#      postgres:
+#        condition: service_healthy
+#    restart: unless-stopped
+#    deploy:
+#      resources:
+#        limits:
+#          cpus: '4'
+#          memory: 6G
+#        reservations:
+#          cpus: '2'
+#          memory: 2G
+#    healthcheck:
+#      test: [ "CMD", "curl", "-f", "http://localhost:${SERVER_PORT}/actuator/health" ]
+#      interval: 30s
+#      timeout: 3s
+#      retries: 3
+#      start_period: 40s
 
   redis:
     image: redis:7-alpine
@@ -134,21 +131,21 @@ services:
           cpus: '0.05'
           memory: 128M
 
-  loki:
-    image: grafana/loki:latest
-    restart: unless-stopped
-    ports:
-      - "${LOKI_PORT}:3100"
-    volumes:
-      - loki_data:/loki
-    deploy:
-      resources:
-        limits:
-          cpus: '0.1'
-          memory: 128M
-        reservations:
-          cpus: '0.05'
-          memory: 64M
+#  loki:
+#    image: grafana/loki:latest
+#    restart: unless-stopped
+#    ports:
+#      - "${LOKI_PORT}:3100"
+#    volumes:
+#      - loki_data:/loki
+#    deploy:
+#      resources:
+#        limits:
+#          cpus: '0.1'
+#          memory: 128M
+#        reservations:
+#          cpus: '0.05'
+#          memory: 64M
 
   grafana:
     image: grafana/grafana:latest
@@ -160,7 +157,6 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
     depends_on:
       - prometheus
-      - loki
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
@@ -177,6 +173,6 @@ services:
 volumes:
   postgres_data:
   prometheus_data:
-  loki_data:
+#  loki_data:
   grafana_data:
   redis_data:

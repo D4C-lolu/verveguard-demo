@@ -1,54 +1,70 @@
 // ── VERVEGUARD OVERHEAD TEST ──────────────────────────────────────────────────
 //
-// Measures pure framework overhead (auth, interceptors, AOP, serialization)
-// with zero business logic by hitting the /ping endpoint.
+// Warms the JVM first, then measures pure framework overhead by hitting /ping.
 //
 // Run:
 //   k6 run overhead.js
-//   k6 run overhead.js -e BASE_URL=http://staging:8080/api/v1
-//   k6 run overhead.js -e VUS=200 -e DURATION=30s -e THRESHOLD=100
+//   k6 run overhead.js -e BASE_URL=http://app:8080/api/v1 -e VUS=200 -e DURATION=30s -e THRESHOLD=100
 // ─────────────────────────────────────────────────────────────────────────────
 
 import http from 'k6/http';
-import {check, sleep} from 'k6';
+import { check, sleep } from 'k6';
 import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.2/index.js';
-import {Counter, Rate, Trend} from 'k6/metrics';
+import { Counter, Rate, Trend } from 'k6/metrics';
 
 // ── CONFIG ────────────────────────────────────────────────────────────────────
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080/api/v1';
-const EMAIL = __ENV.EMAIL || 'cleanuser@verveguard.com';
-const PASSWORD = __ENV.PASSWORD || 'Admin123!';
-const VUS = parseInt(__ENV.VUS || '200');
-const DURATION = __ENV.DURATION || '30s';
-const THRESHOLD = parseInt(__ENV.THRESHOLD || '100');
-const THINK_MS = parseFloat(__ENV.THINK_MS || '0');  // no think time — pure overhead
+const BASE_URL   = __ENV.BASE_URL  || 'http://localhost:8080/api/v1';
+const EMAIL      = __ENV.EMAIL     || 'cleanuser@verveguard.com';
+const PASSWORD   = __ENV.PASSWORD  || 'Admin123!';
+const VUS        = parseInt(__ENV.VUS       || '200');
+const DURATION   = __ENV.DURATION  || '30s';
+const THRESHOLD  = parseInt(__ENV.THRESHOLD || '100');
+const THINK_MS   = parseFloat(__ENV.THINK_MS || '0');
+
+// Warmup: ramp to full VUs over 15s, sustain for 15s — enough to fill pools and JIT
+const WARMUP_RAMP    = '15s';
+const WARMUP_SUSTAIN = '15s';
+const WARMUP_TOTAL_S = 30; // must match ramp + sustain in seconds
 
 // ── METRICS ───────────────────────────────────────────────────────────────────
 const overheadDuration = new Trend('overhead_ms', true);
-const failRate = new Rate('fail_rate');
-const reqCount = new Counter('req_count');
+const failRate         = new Rate('fail_rate');
+const reqCount         = new Counter('req_count');
 
 // ── OPTIONS ───────────────────────────────────────────────────────────────────
 export const options = {
     scenarios: {
-        overhead_test: {
-            executor: 'constant-vus',
-            vus: VUS,
-            duration: DURATION,
+        warmup: {
+            executor:  'ramping-vus',
+            startVUs:  0,
+            stages: [
+                { duration: WARMUP_RAMP,    target: VUS },
+                { duration: WARMUP_SUSTAIN, target: VUS },
+                { duration: '5s',           target: 0   },
+            ],
+            gracefulRampDown: '5s',
+            exec: 'warmupFn',
+        },
+        measure: {
+            executor:  'constant-vus',
+            vus:       VUS,
+            duration:  DURATION,
+            startTime: `${WARMUP_TOTAL_S + 5}s`, // start after warmup + rampdown buffer
+            exec:      'measureFn',
         },
     },
     thresholds: {
         overhead_ms: [`p(95)<${THRESHOLD}`],
-        fail_rate: ['rate<0.01'],  // near-zero tolerance — ping should never fail
+        fail_rate:   ['rate<0.01'],
     },
 };
 
-// ── SETUP — log in once, share token across all VUs ───────────────────────────
+// ── SETUP ─────────────────────────────────────────────────────────────────────
 export function setup() {
     const res = http.post(
         `${BASE_URL}/auth/login`,
-        JSON.stringify({email: EMAIL, password: PASSWORD}),
-        {headers: {'Content-Type': 'application/json'}}
+        JSON.stringify({ email: EMAIL, password: PASSWORD }),
+        { headers: { 'Content-Type': 'application/json' } }
     );
 
     if (res.status !== 200) {
@@ -61,18 +77,23 @@ export function setup() {
     }
 
     console.log(`✓ Logged in as ${EMAIL}`);
-    return {token};
+    return { token };
 }
 
-// ── MAIN LOOP ─────────────────────────────────────────────────────────────────
-export default function (data) {
+// ── WARMUP (metrics collected but not reported) ───────────────────────────────
+export function warmupFn() {
+    http.get(`${BASE_URL}/fraud/ping`, {
+        tags: { name: 'warmup' },
+    });
+    if (THINK_MS > 0) sleep(THINK_MS / 1000);
+}
+
+// ── MEASURE ───────────────────────────────────────────────────────────────────
+export function measureFn() {
     const res = http.get(
         `${BASE_URL}/fraud/ping`,
         {
-            headers: {
-                'X-Forwarded-For': `192.168.${__VU % 256}.${__ITER % 256}`,
-            },
-            tags: {name: 'ping'},
+            tags: { name: 'ping' },
         }
     );
 
@@ -82,22 +103,21 @@ export default function (data) {
 
     check(res, {
         'status 200': r => r.status === 200,
-        'body ok': r => r.body.includes('ok') // enforced by threshold, shown in checkss
+        'body ok':    r => r.body.includes('ok'),
     });
-
 
     if (THINK_MS > 0) sleep(THINK_MS / 1000);
 }
 
 // ── SUMMARY ───────────────────────────────────────────────────────────────────
 export function handleSummary(data) {
-    const ev = data.metrics.overhead_ms?.values ?? {};
-    const ms = (key) => ev[key] != null ? `${Number(ev[key]).toFixed(2)} ms` : 'N/A';
-    const rps = data.metrics.http_reqs?.values?.rate ?? 0;
-    const fail = (data.metrics.fail_rate?.values?.rate ?? 0) * 100;
+    const ev    = data.metrics.overhead_ms?.values ?? {};
+    const ms    = (key) => ev[key] != null ? `${Number(ev[key]).toFixed(2)} ms` : 'N/A';
+    const rps   = data.metrics.http_reqs?.values?.rate ?? 0;
+    const fail  = (data.metrics.fail_rate?.values?.rate ?? 0) * 100;
     const total = data.metrics.req_count?.values?.count ?? 0;
-    const p95 = ev['p(95)'] != null ? Number(ev['p(95)']) : null;
-    const pass = p95 != null ? (p95 < THRESHOLD ? '✓ PASS' : '✗ FAIL') : '–';
+    const p95   = ev['p(95)'] != null ? Number(ev['p(95)']) : null;
+    const pass  = p95 != null ? (p95 < THRESHOLD ? '✓ PASS' : '✗ FAIL') : '–';
 
     console.log(`
 ==================================================================

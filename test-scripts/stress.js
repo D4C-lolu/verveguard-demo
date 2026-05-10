@@ -26,6 +26,11 @@ const RAMP_DURATION = __ENV.RAMP_DURATION || '30s';
 const SUSTAIN       = __ENV.SUSTAIN       || DURATION;
 const ITERATIONS    = parseInt(__ENV.ITERATIONS    || '1000');
 
+// ── WARMUP CONFIG ─────────────────────────────────────────────────────────────
+const WARMUP_RAMP    = '15s';
+const WARMUP_SUSTAIN = '15s';
+const WARMUP_TOTAL_S = 35; // ramp + sustain + 5s rampdown buffer
+
 // ── IP POOL ───────────────────────────────────────────────────────────────────
 const PUBLIC_IPS = [
     '8.8.8.8',
@@ -42,17 +47,19 @@ const evalFailRate = new Rate('evaluate_fail_rate');
 const evalCount    = new Counter('evaluate_count');
 
 // ── OPTIONS ───────────────────────────────────────────────────────────────────
-function buildScenario() {
+function buildMeasureScenario() {
     switch (EXECUTOR) {
         case 'ramp':
             return {
                 executor: 'ramping-vus',
                 startVUs: 0,
+                startTime: `${WARMUP_TOTAL_S}s`,
                 stages: [
                     { duration: RAMP_DURATION, target: MAX_VUS },
                     { duration: SUSTAIN,       target: MAX_VUS },
                     { duration: '15s',         target: 0 },
                 ],
+                exec: 'measureFn',
             };
         case 'iterations':
             return {
@@ -60,19 +67,34 @@ function buildScenario() {
                 vus:         VUS,
                 iterations:  ITERATIONS,
                 maxDuration: '5m',
+                startTime:   `${WARMUP_TOTAL_S}s`,
+                exec:        'measureFn',
             };
         default:
             return {
-                executor: 'constant-vus',
-                vus:      VUS,
-                duration: DURATION,
+                executor:  'constant-vus',
+                vus:       VUS,
+                duration:  DURATION,
+                startTime: `${WARMUP_TOTAL_S}s`,
+                exec:      'measureFn',
             };
     }
 }
 
 export const options = {
     scenarios: {
-        verveguard_test: buildScenario(),
+        warmup: {
+            executor:  'ramping-vus',
+            startVUs:  0,
+            stages: [
+                { duration: WARMUP_RAMP,    target: VUS },
+                { duration: WARMUP_SUSTAIN, target: VUS },
+                { duration: '5s',           target: 0   },
+            ],
+            gracefulRampDown: '5s',
+            exec: 'warmupFn',
+        },
+        verveguard_test: buildMeasureScenario(),
     },
     // no thresholds — pure observation
 };
@@ -114,8 +136,35 @@ function setupMerchants() {
     return { merchants };
 }
 
-// ── MAIN LOOP ─────────────────────────────────────────────────────────────────
-export default function (data) {
+// ── WARMUP (hits evaluate endpoint to warm JVM, pools, caches) ────────────────
+export function warmupFn(data) {
+    if (!data.merchants?.length) return;
+
+    const merchant = data.merchants[__VU % data.merchants.length];
+    const token    = SCENARIO === 'admin' ? data.adminToken : merchant.token;
+
+    const headers = {
+        'Content-Type':    'application/json',
+        'Authorization':   `Bearer ${token}`,
+        'X-Forwarded-For': PUBLIC_IPS[__VU % PUBLIC_IPS.length],
+    };
+
+    const payload = JSON.stringify({
+        amount:     100 + Math.floor(Math.random() * 9900),
+        currency:   'NGN',
+        cardNumber: merchant.cardNumber,
+    });
+
+    const evalUrl = SCENARIO === 'admin'
+        ? `${BASE_URL}/fraud/evaluate/${merchant.id}`
+        : `${BASE_URL}/fraud/evaluate`;
+
+    http.post(evalUrl, payload, { headers, tags: { name: 'warmup' } });
+    sleep(THINK_MS / 1000);
+}
+
+// ── MEASURE ───────────────────────────────────────────────────────────────────
+export function measureFn(data) {
     if (!data.merchants?.length) return;
 
     const merchant = data.merchants[__VU % data.merchants.length];
@@ -168,7 +217,6 @@ export function handleSummary(data) {
             ? `${VUS} VUs / ${ITERATIONS} iterations`
             : `CONSTANT ${VUS} VUs / ${DURATION}`;
 
-    // ── English interpretation ─────────────────────────────────────────────
     function interpretLatency(p95ms) {
         if (p95ms === null) return 'No latency data recorded.';
         const v = Number(p95ms);
