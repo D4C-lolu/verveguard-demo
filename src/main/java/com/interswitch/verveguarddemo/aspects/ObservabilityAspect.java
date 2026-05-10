@@ -5,10 +5,12 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.slf4j.MDC;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 
+@ConditionalOnProperty(name = "verveguard.observability.enabled", havingValue = "true", matchIfMissing = true)
 @Slf4j
 @Aspect
 @Component
