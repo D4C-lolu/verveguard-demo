@@ -1,0 +1,16 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="VerveguardDemoApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+    <option name="envFilePaths">
+      <option value="$PROJECT_DIR$/.env" />
+    </option>
+    <module name="verveguard-demo" />
+    <selectedOptions>
+      <option name="environmentVariables" />
+    </selectedOptions>
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.interswitch.verveguarddemo.VerveguardDemoApplication" />
+    <option name="VM_PARAMETERS" value="-XX:+UseZGC -XX:+ZGenerational -XX:MaxGCPauseMillis=10 -XX:ConcGCThreads=2 -XX:ReservedCodeCacheSize=256m -XX:+OptimizeStringConcat -XX:+UseStringDeduplication -XX:+AlwaysPreTouch -Xms1g -Xmx2g -Xss256k" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

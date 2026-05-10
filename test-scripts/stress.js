@@ -97,6 +97,8 @@ export const options = {
         verveguard_test: buildMeasureScenario(),
     },
     // no thresholds — pure observation
+    insecureSkipTLSVerify: true,
+    noConnectionReuse: false,
 };
 
 // ── SETUP ─────────────────────────────────────────────────────────────────────

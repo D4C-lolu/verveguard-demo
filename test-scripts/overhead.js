@@ -57,6 +57,8 @@ export const options = {
         overhead_ms: [`p(95)<${THRESHOLD}`],
         fail_rate:   ['rate<0.01'],
     },
+    insecureSkipTLSVerify: true,
+    noConnectionReuse: false,
 };
 
 // ── SETUP ─────────────────────────────────────────────────────────────────────
