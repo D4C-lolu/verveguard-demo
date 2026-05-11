@@ -9,8 +9,6 @@ public record TierConfigResponse(
         MerchantTier tier,
         BigDecimal dailyTransactionLimit,
         BigDecimal singleTransactionLimit,
-        BigDecimal monthlyTransactionLimit,
-        Integer maxCards,
-        Integer maxAccounts
+        BigDecimal monthlyTransactionLimit
 ) {
 }

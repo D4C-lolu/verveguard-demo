@@ -64,7 +64,59 @@ These are only written during `measureFn` — warmup traffic is tagged separatel
 |--------|-------------|------|
 | `stress.js` | Fraud evaluation load test with warmup | k6 |
 | `overhead.js` | Pure framework overhead via `/ping` | k6 |
+| `cache-benchmark.js` | Blacklist cache speedup measurement | k6 |
 | `fraud-demo.js` | Interactive fraud scenario demo | Node.js |
+
+---
+
+## Cache Benchmark (`cache-benchmark.js`)
+
+Measures the performance benefit of the blacklist cache by comparing cold (cache miss) vs warm (cache hit) latency.
+
+### How It Works
+
+1. **Cold phase**: Single request with empty cache — measures DB lookup time
+2. **Warm phase**: 10 VUs for 15s hitting the same merchant — cache is populated
+3. **Stats phase**: Fetches `/actuator/health` to report cache hit rate
+
+The blacklist cache (`BlacklistDao.blacklistedMerchantCache`) stores merchant blacklist status in a Caffeine cache, avoiding a DB query on every fraud evaluation.
+
+### Run Commands
+
+```bash
+# Default
+k6 run cache-benchmark.js
+
+# Custom target
+k6 run cache-benchmark.js -e BASE_URL=http://192.168.1.10:8080/api/v1
+```
+
+### Results
+
+Run the benchmark to get actual numbers for your hardware:
+
+```bash
+k6 run cache-benchmark.js
+```
+
+The output will show a comparison table with cold vs warm latency and the speedup ratio.
+
+### Why This Matters
+
+Without caching, every fraud evaluation would query the database to check if the merchant is blacklisted. With ~1000 req/s, that's 1000 extra DB queries per second. The cache reduces this to:
+- 1 query on first request (miss)
+- 0 queries on subsequent requests (hit)
+
+The `CacheHealthIndicator` exposes these stats via `/actuator/health`:
+
+```json
+{
+  "merchantBlacklist.hitRate": "99.90%",
+  "merchantBlacklist.hitCount": 14523,
+  "merchantBlacklist.missCount": 15,
+  "merchantBlacklist.size": 15
+}
+```
 
 ---
 

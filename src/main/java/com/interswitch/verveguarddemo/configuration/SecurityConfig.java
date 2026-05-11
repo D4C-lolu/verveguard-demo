@@ -50,7 +50,7 @@ public class SecurityConfig {
                         .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers( "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator/health/**", "/actuator/prometheus").permitAll()
                         .requestMatchers("/actuator/**").hasAuthority(Permissions.SYSTEM_MONITOR)
                         .requestMatchers(
                                 "/v3/api-docs/**",
